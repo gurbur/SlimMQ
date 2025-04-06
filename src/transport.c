@@ -9,7 +9,7 @@
 #include <arpa/inet.h>
 #include "../include/transport.h"
 #include "../include/nano_msg.h"
-#include "../include/packet_handler.h"
+#include "packet_handler.h"
 
 // Global flag to enable debug logging
 static bool debug_enabled = false;
@@ -31,7 +31,7 @@ void enable_transport_debug(bool enable) {
  *
  * Return: UDP socket file descriptor, or -1 on failure
  */
-int init_udp_socket(const char* bind_ip, uint1_t port) {
+int init_udp_socket(const char* bind_ip, uint16_t port) {
 	int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd < 0) {
 		perror("socket() failed");
@@ -77,7 +77,7 @@ int send_message(int sockfd, const struct sockaddr* dest_addr, socklen_t addrlen
 	if (debug_enabled) {
 		printf("[SEND] %d bytes -> %s:%d\n", len,
 			inet_ntoa(((struct sockaddr_in*)dest_addr)->sin_addr),
-			ntohs(((struct sockaddr_if*)dest_addr)->sin_port));
+			ntohs(((struct sockaddr_in*)dest_addr)->sin_port));
 	}
 
 	return sendto(sockfd, buffer, len, 0, dest_addr, addrlen);
@@ -95,7 +95,7 @@ int send_message(int sockfd, const struct sockaddr* dest_addr, socklen_t addrlen
  *
  * Return: 0 on success, -1 on error
  */
-int recv_message(int sockfd, nano_msg_header_t* out_header, void* out_payload, size_t struct sockaddr* from_addr, socklen_t* from_len) {
+int recv_message(int sockfd, nano_msg_header_t* out_header, void* out_payload, size_t max_payload_len, struct sockaddr* from_addr, socklen_t* from_len) {
 	uint8_t buffer[MAX_BUFFER_SIZE];
 	ssize_t len = recvfrom(sockfd, buffer, sizeof(buffer), 0, from_addr, from_len);
 
