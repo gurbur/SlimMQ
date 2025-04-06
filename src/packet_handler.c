@@ -1,6 +1,59 @@
 #include <string.h>
 #include <stdio.h>
 #include "../include/nano_msg.h"
+#include "../include/packet_handler.h"
+
+static bool packet_debug_enabled = false;
+
+/**
+ * set_packet_debug - Enable or disable internal hex/header/payload dump
+ */
+void set_packet_debug(bool enable) {
+	packet_debug_enabled = enable;
+}
+
+/**
+ * dump_hex - 
+ */
+void dump_hex(const uint8_t* data, size_t len) {
+	if (!packet_debug_enabled || data == NULL) return;
+
+	printf("[HEX] (%zu bytes): ", len);
+	for (size_t i = 0; i < len; ++i) {
+		printf("%02X ", data[i]);
+		if ((i + 1) % 16 == 0) printf("\n");
+	}
+	if (len % 16 != 0) printf("\n");
+}
+
+/**
+ * dump_header - Print nano_msg_header_t fields in human-readable format
+ */
+void dump_header(const nano_msg_header_t* hdr) {
+	if (!packet_debug_enabled || hdr == NULL) return;
+
+	printf("[HEADER] version=%u, type=%u, qos=%u, topic_id=%u, msg_id=%u\n", 
+		hdr->version, hdr->msg_type, hdr->qos_level,
+		hdr->topic_id, hdr->msg_id);
+	printf("	 frag_id=%u/%u, batch_size=%u, payload_len=%u, client_nodes=%u\n",
+		hdr->frag_id, hdr->frag_total,
+		hdr->batch_size, hdr->payload_length, hdr->client_node_count);
+}
+
+/**
+ * dump_payload - Print payload in hex (16 bytes per line)
+ */
+void dump_payload(const void* payload, size_t len) {
+	if (!packet_debug_enabled || payload == NULL) return;
+
+	const uint8_t* p = (const uint8_t*)payload;
+	printf("[PAYLOAD] (%zu bytes):\n", len);
+	for (size_t i = 0; i < len; ++i) {
+		printf("%02X ", p[i]);
+		if ((i + 1) % 16 == 0) printf("\n");
+	}
+	if (len % 16 != 0) printf("\n");
+}
 
 /**
  * serialize_message - Convert a message header and payload into a flat buffer
