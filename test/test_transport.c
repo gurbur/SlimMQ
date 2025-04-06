@@ -50,6 +50,9 @@ void test_udp_loopback() {
 	int recv_status = recv_message(sockfd, &recv_header, recv_payload, sizeof(recv_payload), (struct sockaddr*)&recv_from, &from_len);
 	assert(recv_status == 0);
 
+	dump_header(&recv_header);
+	dump_payload(recv_payload, recv_header.payload_length);
+
 	// 6. compare received message
 	assert(memcmp(&header, &recv_header, sizeof(nano_msg_header_t)) == 0);
 	assert(memcmp(test_payload, recv_payload, test_payload_len) == 0);
@@ -63,6 +66,7 @@ int main(int argc, char* argv[]) {
 	for (int i = 1; i < argc; ++i) {
 		if (strcmp(argv[i], "-d") == 0) {
 			enable_transport_debug(true);
+			set_packet_debug(true);
 		}
 	}
 

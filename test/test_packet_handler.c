@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include "../include/nano_msg.h"
+#include "../include/packet_handler.h"
 
 const char* test_payload = "Hello, nanoBUS!";
 const size_t test_payload_len = 15;
@@ -25,40 +26,19 @@ nano_msg_header_t header = {
 	.client_node_count = 3
 };
 
-void dump_hex(const uint8_t* data, size_t len) {
-	if (!dumping_enabled) return;
-
-	printf("[DUMP]Raw buffer (%zu bytes): ", len);
-	for (size_t i = 0; i < len; ++i) {
-		printf("%02X ", data[i]);
-	}
-	printf("\n");
-}
-
-void dump_header(const nano_msg_header_t* hdr) {
-	if (!dumping_enabled) return;
-
-	printf("[HEADER] version=%u, msg_type=%u, qos=%u, topic_id=%u, msg_id=%u\n", 
-		hdr->version, hdr->msg_type, hdr->qos_level,
-		hdr->topic_id, hdr->msg_id);
-	printf("	 frag_id=%u/%u, batch_size=%u, payload_len=%u, client_node_count=%u\n",
-		hdr->frag_id, hdr->frag_total,
-		hdr->batch_size, hdr->payload_length, hdr->client_node_count);
-}
-
 void test_serialization_and_deserialization() {
 	uint8_t buffer[MAX_BUFFER_SIZE];
 	int serialized_len = serialize_message(&header, test_payload, buffer, sizeof(buffer));
 	assert(serialized_len > 0);
-
-	dump_hex(buffer, serialized_len);
 
 	nano_msg_header_t out_header;
 	char out_payload[256];
 	int result = deserialize_message(buffer, serialized_len, &out_header, out_payload, sizeof(out_payload));
 	assert(result == 0);
 
+	dump_hex(buffer, serialized_len);
 	dump_header(&out_header);
+	dump_payload(out_payload, out_header.payload_length);
 
 	assert(memcmp(&header, &out_header, sizeof(nano_msg_header_t)) == 0);
 	assert(memcmp(test_payload, out_payload, test_payload_len) == 0);
@@ -69,7 +49,7 @@ void test_serialization_and_deserialization() {
 int main(int argc, char* argv[]) {
 	for(int i = 1; i < argc; ++i) {
 		if (strcmp(argv[i], "-d") == 0) {
-			dumping_enabled = true;
+			set_packet_debug(true);
 		}
 	}
 
