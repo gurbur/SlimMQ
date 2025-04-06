@@ -1,6 +1,6 @@
 #include <string.h>
 #include <stdio.h>
-#include "nano_msg.h"
+#include "../include/nano_msg.h"
 
 /**
  * serialize_message - Convert a message header and payload into a flat buffer
@@ -24,7 +24,7 @@ int serialize_message(const nano_msg_header_t* header, const void* payload, uint
 	// copy message header into the beginning of the buffer
 	memcpy(out_buf, header, header_size);
 	// copy payload right after the header
-	memcpy(out_buf + header_size + payload, header->payload_length);
+	memcpy(out_buf + header_size, payload, header->payload_length);
 
 	return (int)(header_size + header->payload_length);
 }
