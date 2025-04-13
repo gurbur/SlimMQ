@@ -14,7 +14,7 @@ typedef struct SubscriberList {
 	size_t count;
 } SubscriberList;
 
-// initilize/destroy topic table
+// initialize/destroy topic table
 void init_topic_table(void);
 void free_topic_table(void);
 

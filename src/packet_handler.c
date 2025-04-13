@@ -13,7 +13,7 @@ void set_packet_debug(bool enable) {
 }
 
 /**
- * dump_hex - 
+ * dump_hex - Print data into hexadecimal format
  */
 void dump_hex(const uint8_t* data, size_t len) {
 	if (!packet_debug_enabled || data == NULL) return;
