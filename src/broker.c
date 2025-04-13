@@ -6,6 +6,7 @@
 #include "../include/transport.h"
 #include "../include/nano_msg.h"
 #include "../include/packet_handler.h"
+#include "../include/topic_table.h"
 
 #define BROKER_PORT 9000
 
@@ -49,6 +50,27 @@ int echo_to_client(int sockfd, const struct sockaddr_in* client_addr, socklen_t 
 	return sent;
 }
 
+void handle_subscribe(const char* topic_str, const struct sockaddr_in* client_addr) {
+	subscribe_topic(topic_std, client_addr);
+	if (debug_mode) {
+		printf("[BROKER] Subscribed: %s\n", topic_str);
+	}
+}
+
+void handle_publish(int sockfd, const nano_msg_header_t* header, const char* topic_str) {
+	SubscriberList* targets = get_matching_subscribers(topic_str);
+
+	if (debug_mode) {
+		printf("[BROKER] PUBLISH to %zu subscribers: %s\n", target->counts, topic_str);
+	}
+
+	for (Subscribers* s = target->head; s != NULL; s = s->next) {
+		send_message(sockfd, (struct sockaddr*)&s->addr, sizeof(s->addr), header, topic_str);
+	}
+
+	free_subscriber_list(targets);
+}
+
 void broker_main_loop(int sockfd) {
 	while(1) {
 		struct sockaddr_in client_addr;
@@ -62,8 +84,20 @@ void broker_main_loop(int sockfd) {
 			continue;
 		}
 
+		payload[header.payload_length] = '\0';
 		debug_dump_message(&header, payload);
-		echo_to_client(sockfd, &client_addr, addrlen, &header, payload);
+
+		//echo_to_client(sockfd, &client_addr, addrlen, &header, payload);
+		if (header.msg_type == MSG_SUBSCRIBE) {
+			handle_subscribe(payload, &client_addr);
+		} else if (header.msg_type == MSG_DATA) {
+			handle_publish(sockfd, &header, payload);
+		}
+		else {
+			if (debug_mode) {
+				printf("[BROKER] Unknown message type: %d\n", header.msg_type);
+			}
+		}
 	}
 }
 
@@ -76,11 +110,14 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
+	init_topic_table();
+
 	int sockfd = init_broker_socket();
 	if (sockfd < 0) return 1;
 
 	broker_main_loop(sockfd);
 
+	free_topic_table();
 	close(sockfd);
 	return 0;
 }
