@@ -1,10 +1,11 @@
 #pragma once
 #include <stdint.h>
 
-#define MSG_DATA 0
+#define MSG_PUBLISH 0
 #define MSG_ACK 1
 #define MSG_NODE_COUNT_UPDATE 2
 #define MSG_CONTROL 3
+#define MSG_SUBSCRIBE 4
 
 #define QOS_AT_MOST_ONCE 0
 #define QOS_AT_LEAST_ONCE 1

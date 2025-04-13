@@ -51,7 +51,7 @@ int echo_to_client(int sockfd, const struct sockaddr_in* client_addr, socklen_t 
 }
 
 void handle_subscribe(const char* topic_str, const struct sockaddr_in* client_addr) {
-	subscribe_topic(topic_std, client_addr);
+	subscribe_topic(topic_str, client_addr);
 	if (debug_mode) {
 		printf("[BROKER] Subscribed: %s\n", topic_str);
 	}
@@ -61,10 +61,10 @@ void handle_publish(int sockfd, const nano_msg_header_t* header, const char* top
 	SubscriberList* targets = get_matching_subscribers(topic_str);
 
 	if (debug_mode) {
-		printf("[BROKER] PUBLISH to %zu subscribers: %s\n", target->counts, topic_str);
+		printf("[BROKER] PUBLISH to %zu subscribers: %s\n", targets->count, topic_str);
 	}
 
-	for (Subscribers* s = target->head; s != NULL; s = s->next) {
+	for (Subscriber* s = targets->head; s != NULL; s = s->next) {
 		send_message(sockfd, (struct sockaddr*)&s->addr, sizeof(s->addr), header, topic_str);
 	}
 
@@ -90,7 +90,7 @@ void broker_main_loop(int sockfd) {
 		//echo_to_client(sockfd, &client_addr, addrlen, &header, payload);
 		if (header.msg_type == MSG_SUBSCRIBE) {
 			handle_subscribe(payload, &client_addr);
-		} else if (header.msg_type == MSG_DATA) {
+		} else if (header.msg_type == MSG_PUBLISH) {
 			handle_publish(sockfd, &header, payload);
 		}
 		else {
