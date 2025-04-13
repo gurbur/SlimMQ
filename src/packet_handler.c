@@ -66,20 +66,27 @@ void dump_payload(const void* payload, size_t len) {
  * Return: Total number of bytes written (header + payload),
  * 	   of -1, if out_buf is too small to hold the message
  */
-int serialize_message(const nano_msg_header_t* header, const void* payload, uint8_t* out_buf, size_t buf_size) {
+int serialize_message(const nano_msg_header_t* header, const char* topic, const void* data, size_t data_len, uint8_t* out_buf, size_t buf_size) {
+	uint8_t topic_len = (uint8_t)strlen(topic);
+	size_t total_payload = 1 + topic_len + data_len;
 	size_t header_size = sizeof(nano_msg_header_t);
 	
 	// check if output buffer is large enough
-	if (buf_size < header_size + header->payload_length) {
+	if (buf_size < header_size + total_payload) {
 		return -1;
 	}
 
 	// copy message header into the beginning of the buffer
 	memcpy(out_buf, header, header_size);
-	// copy payload right after the header
-	memcpy(out_buf + header_size, payload, header->payload_length);
+	// compose payload
+	uint8_t* payload_ptr = out_buf + header_size;
+	payload_ptr[0] = topic_len;
+	
+	memcpy(payload_ptr + 1, topic, topic_len);
+	memcpy(payload_ptr + 1 + topic_len, data, data_len);
+	
 
-	return (int)(header_size + header->payload_length);
+	return (int)(header_size + total_payload);
 }
 
 /**
@@ -95,24 +102,34 @@ int serialize_message(const nano_msg_header_t* header, const void* payload, uint
  * 	   -1 if buffer is too small to contain a header,
  * 	   -2 if payload size is too large of incomplete
  */
-int deserialize_message(const uint8_t* in_buf, size_t buf_len, nano_msg_header_t* out_header, void* out_payload, size_t max_payload) {
+int deserialize_message(const uint8_t* in_buf, size_t buf_len,
+		nano_msg_header_t* out_header,
+		char* out_topic, size_t topic_buf_size,
+		void* out_data, size_t max_data_len) {
+	
 	size_t header_size = sizeof(nano_msg_header_t);
 	
 	// verify buffer is large enough to contain at least a header
-	if (buf_len < header_size) {
+	if (buf_len < header_size + 1) {
 		return -1;
 	}
 
 	// copy header portion from buffer
 	memcpy(out_header, in_buf, header_size);
 
-	// check if payload size is valid and doesn't exceed buffer size
-	if (out_header->payload_length > max_payload || buf_len < header_size + out_header->payload_length) {
+	const uint8_t payload_ptr = in_buf + header_size;
+	uint8_t topic_len = payload_ptr[0];
+
+	if (topic_len + 1 > out_header->payload_length || topic_len >= topic_buf_size) {
 		return -2;
 	}
 
-	// copy payload portion from buffer
-	memcpy(out_payload, in_buf + header_size, out_header->payload_length);
+	memcpy(out_topic, payload_ptr + 1, topic_len);
+	out_topic[topic_len] = '\0';
 
+	size_t data_len = out_header->payload_length - (1 + topic_len);
+	if (data_len > max_data_len) return -3;
+
+	memcpy(out_data, payload_ptr + 1 + topic_len, data_len);
 	return 0;
 }
