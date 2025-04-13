@@ -117,7 +117,7 @@ int deserialize_message(const uint8_t* in_buf, size_t buf_len,
 	// copy header portion from buffer
 	memcpy(out_header, in_buf, header_size);
 
-	const uint8_t payload_ptr = in_buf + header_size;
+	const uint8_t* payload_ptr = in_buf + header_size;
 	uint8_t topic_len = payload_ptr[0];
 
 	if (topic_len + 1 > out_header->payload_length || topic_len >= topic_buf_size) {

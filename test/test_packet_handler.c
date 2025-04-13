@@ -1,59 +1,56 @@
-#define MAX_BUFFER_SIZE 256
-
 #include <stdio.h>
 #include <string.h>
-#include <stdint.h>
 #include <assert.h>
-#include <stdbool.h>
+#include <stdint.h>
 #include "../include/nano_msg.h"
 #include "../include/packet_handler.h"
 
-const char* test_payload = "Hello, nanoBUS!";
-const size_t test_payload_len = 15;
+void test_serialization_deserialization() {
+    nano_msg_header_t header = {
+        .version = 1,
+        .msg_type = MSG_PUBLISH,
+        .qos_level = QOS_AT_MOST_ONCE,
+        .topic_id = 0,
+        .msg_id = 42,
+        .frag_id = 0,
+        .frag_total = 1,
+        .batch_size = 1,
+        .payload_length = 0,
+        .client_node_count = 1
+    };
 
-static bool dumping_enabled = false;
+    const char* topic = "sensor/temp/room1";
+    const char* message = "value=22.5";
+    size_t msg_len = strlen(message);
+    size_t topic_len = strlen(topic);
 
-nano_msg_header_t header = {
-	.version = 1,
-	.msg_type = MSG_DATA,
-	.qos_level = QOS_AT_LEAST_ONCE,
-	.topic_id = 42,
-	.msg_id = 12345,
-	.frag_id = 0,
-	.frag_total = 1,
-	.batch_size = 1,
-	.payload_length = test_payload_len,
-	.client_node_count = 3
-};
+    // Set payload_length correctly
+    header.payload_length = 1 + topic_len + msg_len;
 
-void test_serialization_and_deserialization() {
-	uint8_t buffer[MAX_BUFFER_SIZE];
-	int serialized_len = serialize_message(&header, test_payload, buffer, sizeof(buffer));
-	assert(serialized_len > 0);
+    uint8_t buffer[512];
+    int serialized_len = serialize_message(&header, topic, message, msg_len, buffer, sizeof(buffer));
+    assert(serialized_len > 0);
 
-	nano_msg_header_t out_header;
-	char out_payload[256];
-	int result = deserialize_message(buffer, serialized_len, &out_header, out_payload, sizeof(out_payload));
-	assert(result == 0);
+    nano_msg_header_t parsed_header;
+    char parsed_topic[128];
+    char parsed_message[256];
 
-	dump_hex(buffer, serialized_len);
-	dump_header(&out_header);
-	dump_payload(out_payload, out_header.payload_length);
+    int status = deserialize_message(buffer, serialized_len,
+                                     &parsed_header, parsed_topic, sizeof(parsed_topic),
+                                     parsed_message, sizeof(parsed_message));
+    assert(status == 0);
 
-	assert(memcmp(&header, &out_header, sizeof(nano_msg_header_t)) == 0);
-	assert(memcmp(test_payload, out_payload, test_payload_len) == 0);
+    assert(parsed_header.version == header.version);
+    assert(parsed_header.msg_type == header.msg_type);
+    assert(parsed_header.msg_id == header.msg_id);
+    assert(strcmp(parsed_topic, topic) == 0);
+    assert(strncmp(parsed_message, message, msg_len) == 0);
 
-	printf("[PASS] Serialization and deserialization test successful.\n");
+    printf("[PASS] serialize/deserialize with topic+message structure works correctly.\n");
 }
 
-int main(int argc, char* argv[]) {
-	for(int i = 1; i < argc; ++i) {
-		if (strcmp(argv[i], "-d") == 0) {
-			set_packet_debug(true);
-		}
-	}
-
-	test_serialization_and_deserialization();
-	return 0;
+int main() {
+    test_serialization_deserialization();
+    return 0;
 }
 
