@@ -12,6 +12,11 @@
 
 static bool debug_mode = false;
 
+/**
+ * init_broker_socket - create and bind a UDP socket for broker
+ *
+ * Return: the bound UDP socket file descriptor, or -1 on failure
+ */
 int init_broker_socket() {
 	int sockfd = init_udp_socket(NULL, BROKER_PORT);
 	if (sockfd < 0) {
@@ -23,11 +28,28 @@ int init_broker_socket() {
 	return sockfd;
 }
 
+/**
+ * receive_from_client - receive message from a client
+ *
+ * @sockfd: broker's UDP socket file descriptor
+ * @header: output pointer to hold the received message header
+ * @payload: buffer to hold the received message payload
+ * @client_addr: output pointer to store client's address
+ * @addrlen: pointer to length of address
+ *
+ * Return: 0 on success, -1 on failure
+ */
 int receive_from_client(int sockfd, nano_msg_header_t* header, char* payload, struct sockaddr_in* client_addr, socklen_t* addrlen) {
 	return recv_message(sockfd, header, payload, 2048,
 			(struct sockaddr*)client_addr, addrlen);
 }
 
+/**
+ * debug_dump_message - print header and payload if debug mode is enabled
+ *
+ * @header: message header
+ * @payload: raw payload buffer
+ */
 void debug_dump_message(const nano_msg_header_t* header, const void* payload) {
 	if (!debug_mode) return;
 
@@ -36,6 +58,17 @@ void debug_dump_message(const nano_msg_header_t* header, const void* payload) {
 	dump_payload(payload, header->payload_length);
 }
 
+/**
+ * echo_to_client - echo to client with given data
+ *
+ * @sockfd: broker's UDP socket file descriptor
+ * @client_addr: address of client
+ * @addrlen: length of address
+ * @header: original message header
+ * @payload: payload that goes up in message
+ *
+ * Return: 
+ */
 int echo_to_client(int sockfd, const struct sockaddr_in* client_addr, socklen_t addrlen, const nano_msg_header_t* header, const void* payload) {
 	int sent = send_message(sockfd, (const struct sockaddr*)client_addr, addrlen, header, payload);
 
@@ -50,6 +83,12 @@ int echo_to_client(int sockfd, const struct sockaddr_in* client_addr, socklen_t 
 	return sent;
 }
 
+/**
+ * handle_subscribe - handles a subscription request
+ *
+ * @topic_str: topic to subscribe to
+ * @client_addr: address of subscribing client
+ */
 void handle_subscribe(const char* topic_str, const struct sockaddr_in* client_addr) {
 	subscribe_topic(topic_str, client_addr);
 	if (debug_mode) {
@@ -57,6 +96,13 @@ void handle_subscribe(const char* topic_str, const struct sockaddr_in* client_ad
 	}
 }
 
+/**
+ * handle_publish - handles a publish request and forwards it to matching subscribers
+ *
+ * @sockfd: UDP socket to send message
+ * @header: original message header from the publisher
+ * @topic_str: published topic string (used as payload here, for testing)
+ */
 void handle_publish(int sockfd, const nano_msg_header_t* header, const char* topic_str) {
 	SubscriberList* targets = get_matching_subscribers(topic_str);
 
@@ -71,6 +117,11 @@ void handle_publish(int sockfd, const nano_msg_header_t* header, const char* top
 	free_subscriber_list(targets);
 }
 
+/**
+ * broker_main_loop - main loop of the broker
+ *
+ * @sockfd: udp socket of broker
+ */
 void broker_main_loop(int sockfd) {
 	while(1) {
 		struct sockaddr_in client_addr;
