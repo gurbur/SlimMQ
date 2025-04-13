@@ -229,12 +229,12 @@ static void print_topic_tree_recursive(topic_node* node, int depth) {
 
 	printf("- %s", node->segment);
 	if (node->subscribers) {
-		printf(" (%s)", node->subscriber ? "subscribers" : "");
+		printf(" (%s)", node->subscribers ? "subscribers" : "");
 	}
 	printf("\n");
 
 	for (size_t i = 0; i < node->child_count; ++i) {
-		print_topic_recursive(node->children[i], depth + 1);
+		print_topic_tree_recursive(node->children[i], depth + 1);
 	}
 }
 
