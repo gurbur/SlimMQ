@@ -1,5 +1,5 @@
-# What is NanoBUS?
-**NanoBUS** is a lightweight, high-performance messaging middleware written in C.
+# What is SlimMQ?
+**SlimMQ** is a lightweight, high-performance messaging middleware written in C.
 
 It implements a UDP-based, topic-driven, publish-subscribe architecture inspired by systems like Solace and MQTT, while maintaining extreme simplicity and minimal runtime overhead.
 
