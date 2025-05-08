@@ -23,6 +23,6 @@ typedef struct {
 	uint8_t batch_size;
 	uint16_t payload_length;
 	uint8_t client_node_count;
-} nano_msg_header_t;
+} slim_msg_header_t;
 #pragma pack(pop)
 
