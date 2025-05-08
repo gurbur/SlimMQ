@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "nano_msg.h"
+#include "slim_msg.h"
 
 /**
  * set_packet_debug - Enable/disable hex and payload debug printing
@@ -13,7 +13,7 @@ void set_packet_debug(bool enable);
 /**
  * dump_header - Print header fields in human-readable format
  */
-void dump_header(const nano_msg_header_t* hdr);
+void dump_header(const slim_msg_header_t* hdr);
 
 /**
  * dump_payload - Print payload in hex format
@@ -39,7 +39,7 @@ void dump_hex(const uint8_t* data, size_t len);
  *
  * Return: number of bytes written, or -1 on failure
  */
-int serialize_message(const nano_msg_header_t* header,
+int serialize_message(const slim_msg_header_t* header,
                       const char* topic,
                       const void* data, size_t data_len,
                       uint8_t* out_buf, size_t buf_size);
@@ -60,7 +60,7 @@ int serialize_message(const nano_msg_header_t* header,
  * Return: 0 on success, negative value on error
  */
 int deserialize_message(const uint8_t* in_buf, size_t in_len,
-                        nano_msg_header_t* out_header,
+                        slim_msg_header_t* out_header,
                         char* out_topic, size_t topic_buf_size,
                         void* out_data, size_t max_data_len);
 
