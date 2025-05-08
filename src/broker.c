@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <arpa/inet.h>
 #include "../include/transport.h"
-#include "../include/nano_msg.h"
+#include "../include/slim_msg.h"
 #include "../include/packet_handler.h"
 #include "../include/topic_table.h"
 
@@ -39,7 +39,7 @@ int init_broker_socket() {
  *
  * Return: 0 on success, -1 on failure
  */
-int receive_from_client(int sockfd, nano_msg_header_t* header, char* payload, struct sockaddr_in* client_addr, socklen_t* addrlen) {
+int receive_from_client(int sockfd, slim_msg_header_t* header, char* payload, struct sockaddr_in* client_addr, socklen_t* addrlen) {
 	return recv_message(sockfd, header, payload, 2048,
 			(struct sockaddr*)client_addr, addrlen);
 }
@@ -50,7 +50,7 @@ int receive_from_client(int sockfd, nano_msg_header_t* header, char* payload, st
  * @header: message header
  * @payload: raw payload buffer
  */
-void debug_dump_message(const nano_msg_header_t* header, const void* payload) {
+void debug_dump_message(const slim_msg_header_t* header, const void* payload) {
 	if (!debug_mode) return;
 
 	printf("[BROKER] Received message:\n");
@@ -69,7 +69,7 @@ void debug_dump_message(const nano_msg_header_t* header, const void* payload) {
  *
  * Return: 
  */
-int echo_to_client(int sockfd, const struct sockaddr_in* client_addr, socklen_t addrlen, const nano_msg_header_t* header, const void* payload) {
+int echo_to_client(int sockfd, const struct sockaddr_in* client_addr, socklen_t addrlen, const slim_msg_header_t* header, const void* payload) {
 	int sent = send_message(sockfd, (const struct sockaddr*)client_addr, addrlen, header, payload);
 
 	if (debug_mode) {
@@ -103,7 +103,7 @@ void handle_subscribe(const char* topic_str, const struct sockaddr_in* client_ad
  * @header: original message header from the publisher
  * @topic_str: published topic string (used as payload here, for testing)
  */
-void handle_publish(int sockfd, const nano_msg_header_t* header, const char* topic_str) {
+void handle_publish(int sockfd, const slim_msg_header_t* header, const char* topic_str) {
 	SubscriberList* targets = get_matching_subscribers(topic_str);
 
 	if (debug_mode) {
@@ -126,7 +126,7 @@ void broker_main_loop(int sockfd) {
 	while(1) {
 		struct sockaddr_in client_addr;
 		socklen_t addrlen = sizeof(client_addr);
-		nano_msg_header_t header;
+		slim_msg_header_t header;
 		char payload[2048];
 
 		int result = receive_from_client(sockfd, &header, payload, &client_addr, &addrlen);
