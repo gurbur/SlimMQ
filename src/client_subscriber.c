@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include "../include/transport.h"
-#include "../include/nano_msg.h"
+#include "../include/slim_msg.h"
 #include "../include/packet_handler.h"
 
 #define DEFAULT_BROKER_PORT 9000
@@ -15,7 +15,7 @@
 static bool debug_mode = false;
 
 void send_subscribe_request(int sockfd, const struct sockaddr_in* broker_addr, const char* topic_str) {
-    nano_msg_header_t header = {
+    slim_msg_header_t header = {
         .version = 1,
         .msg_type = MSG_SUBSCRIBE,
         .qos_level = QOS_AT_MOST_ONCE,
@@ -43,7 +43,7 @@ void receive_messages_loop(int sockfd) {
     while (1) {
         struct sockaddr_in from;
         socklen_t fromlen = sizeof(from);
-        nano_msg_header_t header;
+        slim_msg_header_t header;
         char payload[MAX_PAYLOAD_LEN];
 
         int res = recv_message(sockfd, &header, payload, sizeof(payload), (struct sockaddr*)&from, &fromlen);
