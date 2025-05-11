@@ -1,6 +1,6 @@
 #include <string.h>
 #include <stdio.h>
-#include "../include/nano_msg.h"
+#include "../include/slim_msg.h"
 #include "../include/packet_handler.h"
 
 static bool packet_debug_enabled = false;
@@ -27,9 +27,9 @@ void dump_hex(const uint8_t* data, size_t len) {
 }
 
 /**
- * dump_header - Print nano_msg_header_t fields in human-readable format
+ * dump_header - Print slim_msg_header_t fields in human-readable format
  */
-void dump_header(const nano_msg_header_t* hdr) {
+void dump_header(const slim_msg_header_t* hdr) {
 	if (!packet_debug_enabled || hdr == NULL) return;
 
 	printf("[HEADER] version=%u, type=%u, qos=%u, topic_id=%u, msg_id=%u\n", 
@@ -58,7 +58,7 @@ void dump_payload(const void* payload, size_t len) {
 /**
  * serialize_message - Convert a message header and payload into a flat buffer
  *
- * @header: Pointer to nano_msg_header_t (metadata)
+ * @header: Pointer to slim_msg_header_t (metadata)
  * @payload: Pointer to payload data (can be NULL if payload_length == 0)
  * @out_buf: Destination buffer to write serialized data into
  * @buf_size: Size of out_buf in bytes
@@ -66,10 +66,10 @@ void dump_payload(const void* payload, size_t len) {
  * Return: Total number of bytes written (header + payload),
  * 	   of -1, if out_buf is too small to hold the message
  */
-int serialize_message(const nano_msg_header_t* header, const char* topic, const void* data, size_t data_len, uint8_t* out_buf, size_t buf_size) {
+int serialize_message(const slim_msg_header_t* header, const char* topic, const void* data, size_t data_len, uint8_t* out_buf, size_t buf_size) {
 	uint8_t topic_len = (uint8_t)strlen(topic);
 	size_t total_payload = 1 + topic_len + data_len;
-	size_t header_size = sizeof(nano_msg_header_t);
+	size_t header_size = sizeof(slim_msg_header_t);
 	
 	// check if output buffer is large enough
 	if (buf_size < header_size + total_payload) {
@@ -103,11 +103,11 @@ int serialize_message(const nano_msg_header_t* header, const char* topic, const 
  * 	   -2 if payload size is too large of incomplete
  */
 int deserialize_message(const uint8_t* in_buf, size_t buf_len,
-		nano_msg_header_t* out_header,
+		slim_msg_header_t* out_header,
 		char* out_topic, size_t topic_buf_size,
 		void* out_data, size_t max_data_len) {
 	
-	size_t header_size = sizeof(nano_msg_header_t);
+	size_t header_size = sizeof(slim_msg_header_t);
 	
 	// verify buffer is large enough to contain at least a header
 	if (buf_len < header_size + 1) {
