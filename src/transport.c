@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include "../include/transport.h"
-#include "../include/nano_msg.h"
+#include "../include/slim_msg.h"
 #include "packet_handler.h"
 
 // Global flag to enable debug logging
@@ -61,12 +61,12 @@ int init_udp_socket(const char* bind_ip, uint16_t port) {
  * @sockfd: UDP socket file descriptor
  * @dest_addr: Pointer to destination sockaddr (IPV4)
  * @addrlen: Length of destination sockaddr
- * @header: Pointer to nanoBUS message header
+ * @header: Pointer to slimMQ message header
  * @payload: Pointer to payload data (can be NULL if empty)
  *
  * Return: Number of bytes sent, or -1 on error
  */
-int send_message(int sockfd, const struct sockaddr* dest_addr, socklen_t addrlen, const nano_msg_header_t* header, const void* payload) {
+int send_message(int sockfd, const struct sockaddr* dest_addr, socklen_t addrlen, const slim_msg_header_t* header, const void* payload) {
 	uint8_t buffer[MAX_BUFFER_SIZE];
 	int len = serialize_message(header, payload, buffer, sizeof(buffer));
 	if (len < 0) {
@@ -95,7 +95,7 @@ int send_message(int sockfd, const struct sockaddr* dest_addr, socklen_t addrlen
  *
  * Return: 0 on success, -1 on error
  */
-int recv_message(int sockfd, nano_msg_header_t* out_header, void* out_payload, size_t max_payload_len, struct sockaddr* from_addr, socklen_t* from_len) {
+int recv_message(int sockfd, slim_msg_header_t* out_header, void* out_payload, size_t max_payload_len, struct sockaddr* from_addr, socklen_t* from_len) {
 	uint8_t buffer[MAX_BUFFER_SIZE];
 	ssize_t len = recvfrom(sockfd, buffer, sizeof(buffer), 0, from_addr, from_len);
 
