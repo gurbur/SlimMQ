@@ -4,10 +4,10 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include "../include/transport.h"
-#include "../include/nano_msg.h"
+#include "../include/slim_msg.h"
 #include "../include/packet_handler.h"
 
-const char* test_payload = "hello from nanoBUS!";
+const char* test_payload = "hello from SlimMQ!";
 const size_t test_payload_len = 20;
 
 void test_udp_loopback() {
@@ -24,7 +24,7 @@ void test_udp_loopback() {
 	inet_pton(AF_INET, "127.0.0.1", &dest_addr.sin_addr);
 
 	// 3. compose message header
-	nano_msg_header_t header = {
+	slim_msg_header_t header = {
 		.version = 1,
 		.msg_type = MSG_DATA,
 		.qos_level = QOS_AT_MOST_ONCE,
@@ -42,7 +42,7 @@ void test_udp_loopback() {
 	assert(bytes_sent > 0);
 
 	// 5. receive message
-	nano_msg_header_t recv_header;
+	slim_msg_header_t recv_header;
 	char recv_payload[256];
 	struct sockaddr_in recv_from;
 	socklen_t from_len = sizeof(recv_from);
@@ -54,7 +54,7 @@ void test_udp_loopback() {
 	dump_payload(recv_payload, recv_header.payload_length);
 
 	// 6. compare received message
-	assert(memcmp(&header, &recv_header, sizeof(nano_msg_header_t)) == 0);
+	assert(memcmp(&header, &recv_header, sizeof(slim_msg_header_t)) == 0);
 	assert(memcmp(test_payload, recv_payload, test_payload_len) == 0);
 
 	printf("[PASS] UDP transport loopback test successful.\n");
