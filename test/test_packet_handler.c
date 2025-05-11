@@ -2,11 +2,11 @@
 #include <string.h>
 #include <assert.h>
 #include <stdint.h>
-#include "../include/nano_msg.h"
+#include "../include/slim_msg.h"
 #include "../include/packet_handler.h"
 
 void test_serialization_deserialization() {
-    nano_msg_header_t header = {
+    slim_msg_header_t header = {
         .version = 1,
         .msg_type = MSG_PUBLISH,
         .qos_level = QOS_AT_MOST_ONCE,
@@ -31,7 +31,7 @@ void test_serialization_deserialization() {
     int serialized_len = serialize_message(&header, topic, message, msg_len, buffer, sizeof(buffer));
     assert(serialized_len > 0);
 
-    nano_msg_header_t parsed_header;
+    slim_msg_header_t parsed_header;
     char parsed_topic[128];
     char parsed_message[256];
 
