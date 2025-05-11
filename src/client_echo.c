@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include "../include/transport.h"
 #include "../include/packet_handler.h"
-#include "../include/nano_msg.h"
+#include "../include/slim_msg.h"
 
 #define DEFAULT_BROKER_PORT 9000
 #define DEFAULT_BROKER_IP "127.0.0.1"
@@ -15,7 +15,7 @@
 static bool debug_mode = false;
 
 void send_echo_message(int sockfd, const struct sockaddr_in* broker_addr, const char* msg) {
-    nano_msg_header_t header = {
+    slim_msg_header_t header = {
         .version = 1,
         .msg_type = MSG_DATA,
         .qos_level = QOS_AT_MOST_ONCE,
@@ -41,7 +41,7 @@ void send_echo_message(int sockfd, const struct sockaddr_in* broker_addr, const 
     // receive
     struct sockaddr_in recv_from;
     socklen_t from_len = sizeof(recv_from);
-    nano_msg_header_t recv_header;
+    slim_msg_header_t recv_header;
     char recv_payload[MAX_PAYLOAD_LEN];
 
     int status = recv_message(sockfd, &recv_header, recv_payload, sizeof(recv_payload),
@@ -58,7 +58,7 @@ void send_echo_message(int sockfd, const struct sockaddr_in* broker_addr, const 
 }
 
 int main(int argc, char* argv[]) {
-    const char* message = "Hello, nanoBUS!";
+    const char* message = "Hello, SlimMQ!";
     const char* broker_ip = DEFAULT_BROKER_IP;
     int port = DEFAULT_BROKER_PORT;
 
