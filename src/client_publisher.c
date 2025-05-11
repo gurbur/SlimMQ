@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include "../include/transport.h"
-#include "../include/nano_msg.h"
+#include "../include/slim_msg.h"
 #include "../include/packet_handler.h"
 
 #define DEFAULT_BROKER_PORT 9000
@@ -16,7 +16,7 @@ static bool debug_mode = false;
 
 void send_publish(int sockfd, const struct sockaddr_in* broker_addr,
                   const char* topic_str) {
-    nano_msg_header_t header = {
+    slim_msg_header_t header = {
         .version = 1,
         .msg_type = MSG_PUBLISH,
         .qos_level = QOS_AT_MOST_ONCE,
