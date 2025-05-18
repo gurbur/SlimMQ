@@ -24,16 +24,18 @@ void send_subscribe_request(int sockfd, const struct sockaddr_in* broker_addr, c
         .frag_id = 0,
         .frag_total = 1,
         .batch_size = 1,
-        .payload_length = strlen(topic_str),
-        .client_node_count = 1
+        .client_node_count = 1,
+        .payload_length = 1 + strlen(topic_str),
     };
 
-    int sent = send_message(sockfd, (const struct sockaddr*)broker_addr, sizeof(*broker_addr), &header, topic_str);
-    if (sent < 0) {
-        fprintf(stderr, "[CLIENT] Failed to send SUBSCRIBE.\n");
-        return;
-    }
+		uint8_t buffer[512];
+		int len = serialize_message(&header, topic_str, NULL, 0, buffer, sizeof(buffer));
+		if (len < 0) {
+			fprintf(stderr, "[CLIENT] Failed to serialize SUBSCRIBE.\n");
+			return;
+		}
 
+		send_bytes(sockfd, (const struct sockaddr*)broker_addr, sizeof(*broker_addr), buffer, len);
     if (debug_mode) {
         printf("[CLIENT] SUBSCRIBE sent for topic: %s\n", topic_str);
     }
@@ -43,18 +45,26 @@ void receive_messages_loop(int sockfd) {
     while (1) {
         struct sockaddr_in from;
         socklen_t fromlen = sizeof(from);
+				uint8_t buffer[1024];
         slim_msg_header_t header;
-        char payload[MAX_PAYLOAD_LEN];
+				char topic_buf[256];
+        char payload[512];
 
-        int res = recv_message(sockfd, &header, payload, sizeof(payload), (struct sockaddr*)&from, &fromlen);
-        if (res == 0) {
-            payload[header.payload_length] = '\0';
-            printf("[RECV] Message on topic: %s\n", payload);
-            dump_header(&header);
-            dump_payload(payload, header.payload_length);
-        } else {
-            fprintf(stderr, "[CLIENT] Failed to receive message.\n");
-        }
+				int len = recv_bytes(sockfd, buffer, sizeof(buffer), (struct sockaddr*)&from, &fromlen);
+        if (len < 0) {
+					fprintf(stderr, "[CLIENT] Failed to receive message.\n");
+					continue;
+				}
+
+				int res = deserialize_message(buffer, len, &header, topic_buf, sizeof(topic_buf), payload, sizeof(payload));
+
+				if (res == 0) {
+					printf("[RECV] Topic: %s\n", topic_buf);
+					dump_header(&header);
+					dump_payload(payload, header.payload_length - (1 + strlen(topic_buf)));
+				} else {
+					fprintf(stderr, "[CLIENT] Failed to parse message.\n");
+				}
     }
 }
 

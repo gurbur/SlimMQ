@@ -17,42 +17,48 @@ static bool debug_mode = false;
 void send_echo_message(int sockfd, const struct sockaddr_in* broker_addr, const char* msg) {
     slim_msg_header_t header = {
         .version = 1,
-        .msg_type = MSG_DATA,
+        .msg_type = MSG_PUBLISH,
         .qos_level = QOS_AT_MOST_ONCE,
-        .topic_id = 1001,
+        .topic_id = 0,
         .msg_id = 1000,
         .frag_id = 0,
         .frag_total = 1,
         .batch_size = 1,
-        .payload_length = strlen(msg),
-        .client_node_count = 1
+        .client_node_count = 1,
+				.payload_length = (1 + strlen("echo") + strlen(msg))
     };
 
-    int sent = send_message(sockfd, (const struct sockaddr*)broker_addr, sizeof(*broker_addr), &header, msg);
-    if (sent < 0) {
-        fprintf(stderr, "[CLIENT] Failed to send message.\n");
-        return;
-    }
+		uint8_t buffer[512];
+		int len = serialize_message(&header, "echo", msg, strlen(msg), buffer, sizeof(buffer));
+		if (len < 0) {
+			fprintf(stderr, "[CLIENT] Failed to serialize message.\n");
+			return;
+		}
+
+    send_bytes(sockfd, (const struct sockaddr*)broker_addr, sizeof(*broker_addr), buffer, len);
 
     if (debug_mode) {
-        printf("[CLIENT] Sent %d bytes to broker.\n", sent);
+        printf("[CLIENT] Sent %d bytes to broker.\n", len);
     }
 
     // receive
+		uint8_t recv_buf[512];
     struct sockaddr_in recv_from;
     socklen_t from_len = sizeof(recv_from);
     slim_msg_header_t recv_header;
-    char recv_payload[MAX_PAYLOAD_LEN];
+		char topic_buf[256];
+    char recv_payload[256];
 
-    int status = recv_message(sockfd, &recv_header, recv_payload, sizeof(recv_payload),
-                              (struct sockaddr*)&recv_from, &from_len);
-    if (status != 0) {
-        fprintf(stderr, "[CLIENT] Failed to receive echo.\n");
-        return;
-    }
+		int recv_len = recv_bytes(sockfd, recv_buf, sizeof(recv_buf), (struct sockaddr*)&recv_from, &from_len);
+		if (recv_len < 0) {
+			fprintf(stderr, "[CLIENT] Failed to receive echo.\n");
+			return;
+		}
 
-    dump_header(&recv_header);
-    dump_payload(recv_payload, recv_header.payload_length);
+		deserialize_message(recv_buf, recv_len, &recv_header, topic_buf, sizeof(topic_buf), recv_payload, sizeof(recv_payload));
+
+		dump_header(&recv_header);
+		dump_payload(recv_payload, recv_header.payload_length - (1 + strlen(topic_buf)));
 
     printf("[CLIENT] Echo message: '%.*s'\n", recv_header.payload_length, recv_payload);
 }
