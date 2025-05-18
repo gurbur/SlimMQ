@@ -40,8 +40,11 @@ int init_broker_socket() {
  * Return: 0 on success, -1 on failure
  */
 int receive_from_client(int sockfd, slim_msg_header_t* header, char* payload, struct sockaddr_in* client_addr, socklen_t* addrlen) {
-	return recv_message(sockfd, header, payload, 2048,
-			(struct sockaddr*)client_addr, addrlen);
+	uint8_t buffer[2048];
+	int received = recv_bytes(sockfd, buffer, sizeof(buffer), (struct sockaddr*)client_addr, addrlen);
+	if (received < 0) return -1;
+
+	return deserialize_message(buffer, received, header, payload, 256, NULL, 0);
 }
 
 /**
@@ -70,7 +73,12 @@ void debug_dump_message(const slim_msg_header_t* header, const void* payload) {
  * Return: 
  */
 int echo_to_client(int sockfd, const struct sockaddr_in* client_addr, socklen_t addrlen, const slim_msg_header_t* header, const void* payload) {
-	int sent = send_message(sockfd, (const struct sockaddr*)client_addr, addrlen, header, payload);
+	uint8_t buffer[2048];
+
+	int len = serialize_message(header, (const char*)payload, NULL, 0, buffer, sizeof(buffer));
+	if (len < 0) return -1;
+
+	int sent = send_bytes(sockfd, (const struct sockaddr*)client_addr, addrlen, buffer, len);
 
 	if (debug_mode) {
 		if (sent > 0) {
@@ -105,13 +113,18 @@ void handle_subscribe(const char* topic_str, const struct sockaddr_in* client_ad
  */
 void handle_publish(int sockfd, const slim_msg_header_t* header, const char* topic_str) {
 	SubscriberList* targets = get_matching_subscribers(topic_str);
-
+	if (!targets) return;
 	if (debug_mode) {
 		printf("[BROKER] PUBLISH to %zu subscribers: %s\n", targets->count, topic_str);
 	}
 
 	for (Subscriber* s = targets->head; s != NULL; s = s->next) {
-		send_message(sockfd, (struct sockaddr*)&s->addr, sizeof(s->addr), header, topic_str);
+		uint8_t buffer[2048];
+
+		int len = serialize_message(header, topic_str, NULL, 0, buffer, sizeof(buffer));
+		if (len > 0){
+			send_bytes(sockfd, (const struct sockaddr*)&s->addr, sizeof(s->addr), buffer, len);
+		}
 	}
 
 	free_subscriber_list(targets);

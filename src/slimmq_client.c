@@ -3,10 +3,10 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include "slimmq_client.h"
-#include "transport.h"
-#include "packet_handler.h"
-#include "slim_msg.h"
+#include "../include/slimmq_client.h"
+#include "../include/transport.h"
+#include "../include/packet_handler.h"
+#include "../include/slim_msg.h"
 
 #define MAX_PACKET_SIZE 2048
 

@@ -8,8 +8,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include "../include/transport.h"
-#include "../include/slim_msg.h"
-#include "packet_handler.h"
 
 // Global flag to enable debug logging
 static bool debug_enabled = false;
@@ -56,59 +54,47 @@ int init_udp_socket(const char* bind_ip, uint16_t port) {
 }
 
 /**
- * send_message - Send a message over UDP (header + payload)
+ * send_bytes - Send a bytes buffer over UDP
  *
  * @sockfd: UDP socket file descriptor
  * @dest_addr: Pointer to destination sockaddr (IPV4)
  * @addrlen: Length of destination sockaddr
- * @header: Pointer to slimMQ message header
- * @payload: Pointer to payload data (can be NULL if empty)
+ * @buffer: Buffer to send
+ * @len: size of buffer to send
  *
  * Return: Number of bytes sent, or -1 on error
  */
-int send_message(int sockfd, const struct sockaddr* dest_addr, socklen_t addrlen, const slim_msg_header_t* header, const void* payload) {
-	uint8_t buffer[MAX_BUFFER_SIZE];
-	int len = serialize_message(header, payload, buffer, sizeof(buffer));
-	if (len < 0) {
-		fprintf(stderr, "Failed to serialize message.\n");
-		return -1;
+int send_bytes(int sockfd, const struct sockaddr* dest_addr, socklen_t addrlen, const uint8_t* buffer, size_t len) {
+  if (debug_enabled) {
+    printf("[SEND] %zu bytes -> %s:%d\n", len,
+										inet_ntoa(((struct sockaddr_in*)dest_addr)->sin_addr),
+										ntohs(((struct sockaddr_in*)dest_addr)->sin_port));
 	}
 
-	if (debug_enabled) {
-		printf("[SEND] %d bytes -> %s:%d\n", len,
-			inet_ntoa(((struct sockaddr_in*)dest_addr)->sin_addr),
-			ntohs(((struct sockaddr_in*)dest_addr)->sin_port));
-	}
-
-	return sendto(sockfd, buffer, len, 0, dest_addr, addrlen);
+  return sendto(sockfd, buffer, len, 0, dest_addr, addrlen);
 }
 
 /**
- * recv_message - Receive and parse a UDP message into header + payload
+ * recv_bytes - Receive bytes into buffer from given sockfd over UDP
  *
  * @sockfd: UDP socket file descriptor
- * @out_header: Output pointer to parsed header structure
- * @out_payload: Output buffer to hold received payload
- * @max_payload_len: Maximum allowed size for payload
+ * @buffer: Buffer to recieve
+ * @max_len: Max length a buffer can hold
  * @from_addr: Output: sender's address
  * @from_len: Input/output: size of from_addr
  *
  * Return: 0 on success, -1 on error
  */
-int recv_message(int sockfd, slim_msg_header_t* out_header, void* out_payload, size_t max_payload_len, struct sockaddr* from_addr, socklen_t* from_len) {
-	uint8_t buffer[MAX_BUFFER_SIZE];
-	ssize_t len = recvfrom(sockfd, buffer, sizeof(buffer), 0, from_addr, from_len);
-
-	if (len <= 0) {
-		return -1;
-	}
+int recv_bytes(int sockfd, uint8_t* buffer, size_t max_len, struct sockaddr* from_addr, socklen_t* from_len) {
+  ssize_t len = recvfrom(sockfd, buffer, max_len, 0, from_addr, from_len);
+	if (len <= 0) return -1;
 
 	if (debug_enabled) {
-		char ip[INET_ADDRSTRLEN];
+    char ip[INET_ADDRSTRLEN];
 		inet_ntop(AF_INET, &((struct sockaddr_in*)from_addr)->sin_addr, ip, sizeof(ip));
 		printf("[RECV] %ld bytes <- %s:%d\n", len, ip, ntohs(((struct sockaddr_in*)from_addr)->sin_port));
 	}
 
-	return deserialize_message(buffer, len, out_header, out_payload, max_payload_len);
+	return (int)len;
 }
 

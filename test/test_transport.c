@@ -9,6 +9,7 @@
 
 const char* test_payload = "hello from SlimMQ!";
 const size_t test_payload_len = 20;
+const char* test_topic = "test/loopback";
 
 void test_udp_loopback() {
 	// 1. create socket & binding (loopback)
@@ -33,28 +34,36 @@ void test_udp_loopback() {
 		.frag_id = 0,
 		.frag_total = 1,
 		.batch_size = 1,
-		.payload_length = test_payload_len,
+		.payload_length = 1 + strtlen(test_topic) + test_payload_len,
 		.client_node_count = 1
 	};
 
 	// 4. send message
-	int bytes_sent = send_message(sockfd, (struct sockaddr*)&dest_addr, addrlen, &header, test_payload);
+	uint8_t out_buf[512];
+	int bytes_sent = serialize_message(&header, test_topic, test_payload, test_payload_len, out_buf, sizeof(out_buf));
 	assert(bytes_sent > 0);
 
-	// 5. receive message
-	slim_msg_header_t recv_header;
-	char recv_payload[256];
-	struct sockaddr_in recv_from;
-	socklen_t from_len = sizeof(recv_from);
+	int sent = send_bytes(sockfd, (struct sockaddr*)&dest_addr, addrlen, out_buf, bytes_sent);
+	assert(sent == bytes_sent);
 
-	int recv_status = recv_message(sockfd, &recv_header, recv_payload, sizeof(recv_payload), (struct sockaddr*)&recv_from, &from_len);
-	assert(recv_status == 0);
+	// 5. receive message
+	uint8_t in_buf[512];
+	int received = recv_bytes(sockfd, in_buf, sizeof(in_buf), (struct sockaddr*)&recv_from, &from_len);
+	assert(received > );
+
+	slim_msg_header_t recv_header;
+	char recv_topic[128];
+	char recv_payload[256];
+
+	int status = deserialize_message(in_buf, received, &recv_header, recv_topic, sizeof(recv_topic), recv_message, sizeof(recv_message));
+
+	assert(status == 0);
 
 	dump_header(&recv_header);
 	dump_payload(recv_payload, recv_header.payload_length);
 
 	// 6. compare received message
-	assert(memcmp(&header, &recv_header, sizeof(slim_msg_header_t)) == 0);
+	assert(strcmp(recv_topic, test_topic) == 0);
 	assert(memcmp(test_payload, recv_payload, test_payload_len) == 0);
 
 	printf("[PASS] UDP transport loopback test successful.\n");
