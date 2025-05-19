@@ -3,14 +3,19 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <netinet/in.h>
+#include <pthread.h>
+#include "event_queue.h"
 
 /**
  * slimMQ client context structure
  */
 typedef struct {
-    int sockfd;                         // internal UDP socket
-    struct sockaddr_in broker_addr;    // destination broker address
-    uint32_t next_msg_id;              // incremental message ID generator
+    int sockfd;												// internal UDP socket
+    struct sockaddr_in broker_addr;		// destination broker address
+    uint32_t next_msg_id;							// incremental message ID generator
+		slimmq_event_queue_t event_queue;	// event queue
+		pthread_t listener_thread;				// thread for incomming messages
+		int running;											// flag for thread loop control
 } slimmq_client_t;
 
 /**
@@ -50,3 +55,24 @@ int slimmq_receive(slimmq_client_t* client,
                     char* out_topic, size_t topic_buf_size,
                     void* out_data, size_t data_buf_size);
 
+/**
+ * slimmq_start_listener - start event queue's listener thread
+ *
+ * @client: slimMQ client
+ *
+ * Return: 
+ */
+int slimmq_start_listener(slimmq_client_t* client);
+
+/**
+ * slimmq_next_event - pop a message from event queue
+ *
+ * @client: slimMQ client
+ * @out_topic: topic buffer
+ * @topic_buf_size: size of topic buffer
+ * @out_data: payload buffer
+ * @out_data_len: size of payload buffer
+ *
+ * Return: 
+ */
+int slimmq_next_event(slimmq_client_t* client, char* out_topic, size_t topic_buf_size, void** out_data, size_t* out_data_len);
