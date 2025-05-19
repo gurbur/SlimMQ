@@ -111,7 +111,7 @@ void handle_subscribe(const char* topic_str, const struct sockaddr_in* client_ad
  * @header: original message header from the publisher
  * @topic_str: published topic string (used as payload here, for testing)
  */
-void handle_publish(int sockfd, const slim_msg_header_t* header, const char* topic_str) {
+void handle_publish(int sockfd, const slim_msg_header_t* header, const char* topic_str, const void* payload, size_t payload_length) {
 	SubscriberList* targets = get_matching_subscribers(topic_str);
 	if (!targets) return;
 	if (debug_mode) {
@@ -121,7 +121,7 @@ void handle_publish(int sockfd, const slim_msg_header_t* header, const char* top
 	for (Subscriber* s = targets->head; s != NULL; s = s->next) {
 		uint8_t buffer[2048];
 
-		int len = serialize_message(header, topic_str, NULL, 0, buffer, sizeof(buffer));
+		int len = serialize_message(header, topic_str, payload, payload_length, buffer, sizeof(buffer));
 		if (len > 0){
 			send_bytes(sockfd, (const struct sockaddr*)&s->addr, sizeof(s->addr), buffer, len);
 		}
@@ -140,24 +140,31 @@ void broker_main_loop(int sockfd) {
 		struct sockaddr_in client_addr;
 		socklen_t addrlen = sizeof(client_addr);
 		slim_msg_header_t header;
-		char payload[2048];
+		char topic[256];
+		char data[2048];
 
-		int result = receive_from_client(sockfd, &header, payload, &client_addr, &addrlen);
-		if (result != 0) {
-			fprintf(stderr, "[BROKER] Failed to receive message.\n");
+		uint8_t buffer[2048];
+		int received = recv_bytes(sockfd, buffer, sizeof(buffer), (struct sockaddr*)&client_addr, &addrlen);
+
+		if (received < 0) {
+			fprintf(stderr, "[BROKER] Failed to receive bytes\n");
 			continue;
 		}
 
-		payload[header.payload_length] = '\0';
-		debug_dump_message(&header, payload);
+		int result = deserialize_message(buffer, received, &header, topic, sizeof(topic), data, sizeof(data));
 
-		//echo_to_client(sockfd, &client_addr, addrlen, &header, payload);
-		if (header.msg_type == MSG_SUBSCRIBE) {
-			handle_subscribe(payload, &client_addr);
-		} else if (header.msg_type == MSG_PUBLISH) {
-			handle_publish(sockfd, &header, payload);
+		if (result != 0) {
+			fprintf(stderr, "[BROKER] Failed to deserialize message.\n");
+			continue;
 		}
-		else {
+
+		debug_dump_message(&header, data);
+
+		if (header.msg_type == MSG_SUBSCRIBE) {
+			handle_subscribe(topic, &client_addr);
+		} else if (header.msg_type == MSG_PUBLISH) {
+			handle_publish(sockfd, &header, topic, data, header.payload_length - (1 + strlen(topic)));
+		}	else {
 			if (debug_mode) {
 				printf("[BROKER] Unknown message type: %d\n", header.msg_type);
 			}

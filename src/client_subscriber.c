@@ -3,106 +3,61 @@
 #include <string.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include "../include/transport.h"
-#include "../include/slim_msg.h"
+#include "../include/slimmq_client.h"
 #include "../include/packet_handler.h"
 
 #define DEFAULT_BROKER_PORT 9000
 #define DEFAULT_BROKER_IP "127.0.0.1"
-#define MAX_PAYLOAD_LEN 256
 
 static bool debug_mode = false;
 
-void send_subscribe_request(int sockfd, const struct sockaddr_in* broker_addr, const char* topic_str) {
-    slim_msg_header_t header = {
-        .version = 1,
-        .msg_type = MSG_SUBSCRIBE,
-        .qos_level = QOS_AT_MOST_ONCE,
-        .topic_id = 0,  // Not used for now
-        .msg_id = 100,
-        .frag_id = 0,
-        .frag_total = 1,
-        .batch_size = 1,
-        .client_node_count = 1,
-        .payload_length = 1 + strlen(topic_str),
-    };
+void receive_messages_loop(slimmq_client_t* client) {
+	while(1) {
+		char topic[128];
+		void* data = NULL;
+		size_t len = 0;
 
-		uint8_t buffer[512];
-		int len = serialize_message(&header, topic_str, NULL, 0, buffer, sizeof(buffer));
-		if (len < 0) {
-			fprintf(stderr, "[CLIENT] Failed to serialize SUBSCRIBE.\n");
-			return;
+		if (slimmq_next_event(client, topic, sizeof(topic), &data, &len) == 0) {
+			printf("[RECV] Topic: %s\n", topic);
+			printf("[RECV] Data: %.*s\n", (int)len, (char*)data);
+			free(data);
+		} else {
+			fprintf(stderr, "[CLIENT] Failed to receive event.\n");
 		}
-
-		send_bytes(sockfd, (const struct sockaddr*)broker_addr, sizeof(*broker_addr), buffer, len);
-    if (debug_mode) {
-        printf("[CLIENT] SUBSCRIBE sent for topic: %s\n", topic_str);
-    }
-}
-
-void receive_messages_loop(int sockfd) {
-    while (1) {
-        struct sockaddr_in from;
-        socklen_t fromlen = sizeof(from);
-				uint8_t buffer[1024];
-        slim_msg_header_t header;
-				char topic_buf[256];
-        char payload[512];
-
-				int len = recv_bytes(sockfd, buffer, sizeof(buffer), (struct sockaddr*)&from, &fromlen);
-        if (len < 0) {
-					fprintf(stderr, "[CLIENT] Failed to receive message.\n");
-					continue;
-				}
-
-				int res = deserialize_message(buffer, len, &header, topic_buf, sizeof(topic_buf), payload, sizeof(payload));
-
-				if (res == 0) {
-					printf("[RECV] Topic: %s\n", topic_buf);
-					dump_header(&header);
-					dump_payload(payload, header.payload_length - (1 + strlen(topic_buf)));
-				} else {
-					fprintf(stderr, "[CLIENT] Failed to parse message.\n");
-				}
-    }
+	}
 }
 
 int main(int argc, char* argv[]) {
-    const char* topic_str = "sensor/+/temp";
-    const char* broker_ip = DEFAULT_BROKER_IP;
-    int port = DEFAULT_BROKER_PORT;
+	const char* topic_str = "sensor/+/temp";
+	const char* broker_ip = DEFAULT_BROKER_IP;
+	int port = DEFAULT_BROKER_PORT;
 
-    for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "-d") == 0) {
-            debug_mode = true;
-            enable_transport_debug(true);
-            set_packet_debug(true);
-        } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
-            topic_str = argv[++i];
-        } else if (strcmp(argv[i], "-ip") == 0 && i + 1 < argc) {
-            broker_ip = argv[++i];
-        } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
-            port = atoi(argv[++i]);
-        }
-    }
+	for (int i = 1; i < argc; ++i) {
+		if (strcmp(argv[i], "-d") == 0) {
+			debug_mode = true;
+			set_packet_debug(true);
+		} else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
+			topic_str = argv[++i];
+		} else if (strcmp(argv[i], "-ip") == 0 && i + 1 < argc) {
+			broker_ip = argv[++i];
+		} else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
+			port = atoi(argv[++i]);
+		}
+	}
 
-    int sockfd = init_udp_socket(NULL, 0);
-    if (sockfd < 0) {
-        fprintf(stderr, "[CLIENT] Failed to create socket.\n");
-        return 1;
-    }
+	slimmq_client_t* client = slimmq_connect(broker_ip, port);
+	if (!client) {
+		fprintf(stderr, "[CLIENT] Failed to connect to broker.\n");
+		return 1;
+	}
 
-    struct sockaddr_in broker_addr;
-    memset(&broker_addr, 0, sizeof(broker_addr));
-    broker_addr.sin_family = AF_INET;
-    broker_addr.sin_port = htons(port);
-    inet_pton(AF_INET, broker_ip, &broker_addr.sin_addr);
+	if (slimmq_subscribe(client, topic_str) < 0) {
+		fprintf(stderr, "[CLIENT] Failed to subscribe.\n");
+		return 1;
+	}
 
-    send_subscribe_request(sockfd, &broker_addr, topic_str);
-    receive_messages_loop(sockfd);
-
-    close(sockfd);
-    return 0;
+	receive_messages_loop(client);
+	slimmq_close(client);
+	return 0;
 }
 
