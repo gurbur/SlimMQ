@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 #include <stdint.h>
+#include "test_common.h"
 #include "../include/slim_msg.h"
 #include "../include/packet_handler.h"
 
@@ -20,10 +20,9 @@ void test_serialization_deserialization() {
 
     const char* topic = "sensor/temp/room1";
     const char* message = "value=22.5";
+
     size_t msg_len = strlen(message);
     size_t topic_len = strlen(topic);
-
-    // Set payload_length correctly
     header.payload_length = 1 + topic_len + msg_len;
 
     uint8_t buffer[512];
@@ -31,8 +30,8 @@ void test_serialization_deserialization() {
 																					message, msg_len,
 																					buffer,
 																					sizeof(buffer));
-    assert(serialized_len > 0);
-		assert(serialized_len == sizeof(slim_msg_header_t) + header.payload_length);
+    ASSERT_TRUE(serialized_len > 0);
+		ASSERT_EQ(serialized_len, sizeof(slim_msg_header_t) + header.payload_length);
 
     slim_msg_header_t parsed_header;
     char parsed_topic[128] = {0};
@@ -44,23 +43,19 @@ void test_serialization_deserialization() {
 																		 sizeof(parsed_topic),
                                      parsed_message,
 																		 sizeof(parsed_message));
-    assert(status == 0);
+		ASSERT_EQ(status, 0);
 
-    assert(parsed_header.version == header.version);
-    assert(parsed_header.msg_type == header.msg_type);
-    assert(parsed_header.msg_id == header.msg_id);
-		assert(parsed_header.payload_length == header.payload_length);
+		ASSERT_EQ(parsed_header.version, header.version);
+		ASSERT_EQ(parsed_header.msg_type, header.msg_type);
+		ASSERT_EQ(parsed_header.msg_id, header.msg_id);
+		ASSERT_EQ(parsed_header.payload_length, header.payload_length);
 
-    assert(strcmp(parsed_topic, topic) == 0);
-
-    assert(strncmp(parsed_message, message, msg_len) == 0);
-		assert(parsed_message[msg_len] == '\0');
-
-    printf("[PASS] serialize/deserialize with topic+message structure works correctly.\n");
+		ASSERT_STR_EQ(parsed_topic, topic);
+		ASSERT_TRUE(memcmp(parsed_message, message, msg_len) == 0);
 }
 
 int main() {
-    test_serialization_deserialization();
+    RUN_TEST(test_serialization_deserialization);
     return 0;
 }
 

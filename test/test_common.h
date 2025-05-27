@@ -18,7 +18,7 @@
 } while(0)
 
 #define ASSERT_STR_EQ(a, b) do {\
-	if (strcmp((a), (b) != 0) {\
+	if (strcmp(a, b) != 0) {\
 		fprintf(stderr, "[FAIL] ASSERT_STR_EQ failed: '%s' != '%s'\n", (a), (b));\
 		exit(1);\
 	}\

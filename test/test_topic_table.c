@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
-#include <assert.h>
+#include "test_common.h"
 #include "../include/topic_table.h"
 
 void fill_addr(struct sockaddr_in* addr, const char* ip_str, int port) {
@@ -22,28 +22,22 @@ void test_basic_subscribe_and_match() {
     subscribe_topic("sensor/#", &sub3);
 
     SubscriberList* list = get_matching_subscribers("sensor/temperature/room1");
-    assert(list->count == 3);
-    printf("[PASS] Matched 3 subscribers for 'sensor/temperature/room1'\n");
+    ASSERT_EQ(list->count, 3);
     free_subscriber_list(list);
 
     list = get_matching_subscribers("sensor/humidity/room2");
-    assert(list->count == 1);  // sub3
-    printf("[PASS] Matched 1 subscriber for 'sensor/humidity/room2'\n");
+    ASSERT_EQ(list->count, 1);
     free_subscriber_list(list);
 }
 
 int main() {
-    printf("=== Testing topic_table ===\n");
-
     init_topic_table();
 
-    test_basic_subscribe_and_match();
+    RUN_TEST(test_basic_subscribe_and_match);
 
     print_topic_tree();
-
     free_topic_table();
 
-    printf("=== All topic_table tests passed ===\n");
     return 0;
 }
 
