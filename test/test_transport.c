@@ -27,42 +27,56 @@ void test_udp_loopback() {
 	// 3. compose message header
 	slim_msg_header_t header = {
 		.version = 1,
-		.msg_type = MSG_DATA,
+		.msg_type = MSG_PUBLISH,
 		.qos_level = QOS_AT_MOST_ONCE,
 		.topic_id = 1001,
 		.msg_id = 777,
 		.frag_id = 0,
 		.frag_total = 1,
 		.batch_size = 1,
-		.payload_length = 1 + strtlen(test_topic) + test_payload_len,
+		.payload_length = 1 + strlen(test_topic) + test_payload_len,
 		.client_node_count = 1
 	};
 
 	// 4. send message
 	uint8_t out_buf[512];
-	int bytes_sent = serialize_message(&header, test_topic, test_payload, test_payload_len, out_buf, sizeof(out_buf));
+	int bytes_sent = serialize_message(&header, test_topic,
+																		test_payload,
+																		test_payload_len, out_buf,
+																		sizeof(out_buf));
 	assert(bytes_sent > 0);
 
-	int sent = send_bytes(sockfd, (struct sockaddr*)&dest_addr, addrlen, out_buf, bytes_sent);
+	int sent = send_bytes(sockfd, (struct sockaddr*)&dest_addr,
+												addrlen, out_buf, bytes_sent);
 	assert(sent == bytes_sent);
 
 	// 5. receive message
+	struct sockaddr_in recv_from;
+	socklen_t from_len = sizeof(recv_from);
 	uint8_t in_buf[512];
-	int received = recv_bytes(sockfd, in_buf, sizeof(in_buf), (struct sockaddr*)&recv_from, &from_len);
-	assert(received > );
+	int received = recv_bytes(sockfd, in_buf, sizeof(in_buf),
+													(struct sockaddr*)&recv_from,
+													&from_len);
+	assert(received > 0);
 
+	// 6. deserialize
 	slim_msg_header_t recv_header;
 	char recv_topic[128];
 	char recv_payload[256];
 
-	int status = deserialize_message(in_buf, received, &recv_header, recv_topic, sizeof(recv_topic), recv_message, sizeof(recv_message));
+	int status = deserialize_message(in_buf, received,
+																	&recv_header,
+																	recv_topic,
+																	sizeof(recv_topic),
+																	recv_payload,
+																	sizeof(recv_payload));
 
 	assert(status == 0);
 
 	dump_header(&recv_header);
 	dump_payload(recv_payload, recv_header.payload_length);
 
-	// 6. compare received message
+	// 7. assert correctness
 	assert(strcmp(recv_topic, test_topic) == 0);
 	assert(memcmp(test_payload, recv_payload, test_payload_len) == 0);
 
