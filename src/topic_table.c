@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <netinet/in.h>
 #include "../include/topic_table.h"
 
@@ -18,6 +19,23 @@ typedef struct topic_node {
 } topic_node;
 
 static topic_node* topic_root = NULL;
+
+/**
+ * is_duplicate_subscriber - Check if the subscriber already exists in the list
+ *
+ * @list: subscriber_list_entry* (linked list of subscribers)
+ * @addr: address of the subscriber to check
+ *
+ * Return: true if duplicate, false otherwise
+ */
+static bool is_duplicate_subscriber(subscriber_list_entry* list, const struct sockaddr_in* addr) {
+	for (; list != NULL; list = list->next) {
+		if (memcmp(&list->addr, addr, sizeof(struct sockaddr_in)) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
 
 /**
  * init_topic_table - initialize topic table
@@ -121,7 +139,10 @@ int subscribe_topic(const char* topic_str, const struct sockaddr_in* addr) {
 	for(int i = 0; i < depth; ++i) {
 		curr = find_or_create_child(curr, segments[i]);
 	}
-	add_subscriber(&curr->subscribers, addr);
+
+	if (!is_duplicate_subscriber(curr->subscribers, addr)) {
+		add_subscriber(&curr->subscribers, addr);
+	}
 
 	for(int i = 0; i < depth; ++i) free(segments[i]);
 	free(segments);
