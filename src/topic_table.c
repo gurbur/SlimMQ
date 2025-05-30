@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include "../include/topic_table.h"
 
 typedef struct subscriber_list_entry {
@@ -19,6 +20,61 @@ typedef struct topic_node {
 } topic_node;
 
 static topic_node* topic_root = NULL;
+
+/**
+ * remove_duplicates - 
+ */
+void remove_duplicates(SubscriberList* list) {
+	Subscriber* prev = NULL;
+	Subscriber* curr = list->head;
+
+	while(curr) {
+		Subscriber* runner = list->head;
+		bool found_duplicate = false;
+
+		while(runner != curr) {
+			printf("[DEBUG] Comparing: %s:%d vs %s:%d\n",
+				inet_ntoa(runner->addr.sin_addr), ntohs(runner->addr.sin_port),
+				inet_ntoa(curr->addr.sin_addr), ntohs(curr->addr.sin_port));
+
+			if (memcmp(&runner->addr, &curr->addr, sizeof(struct sockaddr_in)) == 0) {
+				found_duplicate = true;
+				break;
+			}
+			runner = runner->next;
+		}
+
+		if (found_duplicate) {
+			printf("[DEBUG] Duplicate subscriber removed\n");
+			Subscriber* temp = curr;
+			curr = curr->next;
+			if (prev) prev->next = curr;
+			else list->head = curr;
+			free(temp);
+			list->count--;
+		} else {
+			prev = curr;
+			curr = curr->next;
+		}
+	}
+}
+
+/**
+ * is_in_list - Check if given address is in subscriber list
+ *
+ * @list: subscriber list to check
+ * @addr: finding address
+ *
+ * Return: true if in list, false otherwise
+ */
+static bool is_in_list(SubscriberList* list, const struct sockaddr_in* addr) {
+	for (Subscriber* s = list->head; s != NULL; s = s->next) {
+		if (memcmp(&s->addr, addr, sizeof(struct sockaddr_in)) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
 
 /**
  * is_duplicate_subscriber - Check if the subscriber already exists in the list
@@ -163,11 +219,13 @@ static void match_recursive(topic_node* node, char** segments, int depth, int le
 	if (level == depth || strcmp(node->segment, "#") == 0) {
 		subscriber_list_entry* s = node->subscribers;
 		while(s) {
-			Subscriber* copy = calloc(1, sizeof(Subscriber));
-			memcpy(&copy->addr, &s->addr, sizeof(struct sockaddr_in));
-			copy->next = result->head;
-			result->head = copy;
-			result->count++;
+			if (!is_in_list(result, &s->addr)) {
+				Subscriber* copy = calloc(1, sizeof(Subscriber));
+				memcpy(&copy->addr, &s->addr, sizeof(struct sockaddr_in));
+				copy->next = result->head;
+				result->head = copy;
+				result->count++;
+			}
 			s = s->next;
 		}
 	}
@@ -200,6 +258,9 @@ SubscriberList* get_matching_subscribers(const char* topic_str) {
 
 	for (int i = 0; i < depth; ++i) free(segments[i]);
 	free(segments);
+
+	remove_duplicates(list);
+
 	return list;
 }
 

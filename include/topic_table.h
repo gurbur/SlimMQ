@@ -2,7 +2,7 @@
 
 #include <netinet/in.h>
 #include <stddef.h>
-
+#include <stdbool.h>
 
 typedef struct Subscriber {
 	struct sockaddr_in addr;
@@ -13,6 +13,7 @@ typedef struct SubscriberList {
 	Subscriber* head;
 	size_t count;
 } SubscriberList;
+
 
 // initialize/destroy topic table
 void init_topic_table(void);
