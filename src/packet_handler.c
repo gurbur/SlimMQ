@@ -101,6 +101,72 @@ int serialize_message(const slim_msg_header_t* header, const char* topic,
 }
 
 /**
+ * serialize_control_message - Serialize a MSG_CONTROL packet into a flat byte buffer
+ *
+ * @header: pointer to the base message header (msg_type will be overwritten as MSG_CONTROL
+ * @ctrl_type: control type identifier(CONTROL_HEARTBEAT, CONTROL_DISCONNECT)
+ * @data: optional payload data(can be NULL)
+ * @data_len: length of the optional data in bytes
+ * @buffer: Output buffer to write the serialized packet
+ * @buffer_len: Size of the output buffer in bytes
+ *
+ * Return: Number of bytes written (header + 1 + data), or -1 on error
+ */
+int serialize_control_message(const slim_msg_header_t* header, control_type_t ctrl_type,
+															const void* data, size_t data_len,
+															uint8_t* buffer, size_t buffer_len) {
+ 	if (!header || !buffer || buffer_len < sizeof(slim_msg_header_t) + 1 + data_len) return -1;
+
+	slim_msg_header_t hdr = *header;
+	hdr.msg_type = MSG_CONTROL;
+	hdr.payload_length = 1 + data_len;
+
+	memcpy(buffer, &hdr, sizeof(slim_msg_header_t));
+	buffer[sizeof(slim_msg_header_t)] = (uint8_t)ctrl_type;
+
+	if (data_len > 0) {
+		memcpy(buffer + sizeof(slim_msg_header_t) + 1, data, data_len);
+	}
+
+	return sizeof(slim_msg_header_t) + 1 + data_len;
+}
+
+/**
+ * deserialize_control_message - parse a float buffer into a MSG_CONTROL header and payload
+ *
+ * @in_buf: raw byte buffer received from socket
+ * @buf_len: size of the input buffer
+ * @out_header: output pointer to store the parsed header
+ * @out_type: output pointer to store optional control data
+ * @out_data: output buffer to store optional control data
+ * @max_data_len: maximum size of the output data buffer
+ *
+ * Return: 0 on success, -1 for invalid arguents, -2 for buffer too small, -3 for payload overflow
+ */
+int deserialize_control_message(const uint8_t* in_buf, size_t buf_len,
+																slim_msg_header_t* out_header,
+																control_type_t* out_type, void* out_data,
+																size_t max_data_len) {
+	if (!in_buf || !out_header || !out_type) return -1;
+
+	size_t header_size = sizeof(slim_msg_header_t);
+	if (buf_len < header_size + 1) return -2;
+
+	memcpy(out_header, in_buf, header_size);
+
+	const uint8_t* payload_ptr = in_buf + header_size;
+	*out_type = (control_type_t)payload_ptr[0];
+
+	size_t data_len = out_header->payload_length - 1;
+	if (data_len > 0) {
+		if (data_len > max_data_len) return -3;
+		memcpy(out_data, payload_ptr + 1, data_len);
+	}
+
+	return 0;
+}
+
+/**
  * deserialize_message - Parse a flat buffer into header and payload
  *
  * @in_buf: Pointer to raw buffer received (contains header + payload)
