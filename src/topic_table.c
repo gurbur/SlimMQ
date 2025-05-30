@@ -33,10 +33,6 @@ void remove_duplicates(SubscriberList* list) {
 		bool found_duplicate = false;
 
 		while(runner != curr) {
-			printf("[DEBUG] Comparing: %s:%d vs %s:%d\n",
-				inet_ntoa(runner->addr.sin_addr), ntohs(runner->addr.sin_port),
-				inet_ntoa(curr->addr.sin_addr), ntohs(curr->addr.sin_port));
-
 			if (memcmp(&runner->addr, &curr->addr, sizeof(struct sockaddr_in)) == 0) {
 				found_duplicate = true;
 				break;
@@ -45,7 +41,6 @@ void remove_duplicates(SubscriberList* list) {
 		}
 
 		if (found_duplicate) {
-			printf("[DEBUG] Duplicate subscriber removed\n");
 			Subscriber* temp = curr;
 			curr = curr->next;
 			if (prev) prev->next = curr;

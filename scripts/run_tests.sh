@@ -9,7 +9,7 @@ INCLUDE_DIR="../include"
 
 echo "=== 🔁 Running all SlimMQ tests ==="
 
-CORE_MODULES="$SRC_DIR/packet_handler.c $SRC_DIR/event_queue.c $SRC_DIR/transport.c $SRC_DIR/topic_table.c"
+CORE_MODULES="$SRC_DIR/packet_handler.c $SRC_DIR/event_queue.c $SRC_DIR/transport.c $SRC_DIR/topic_table.c $SRC_DIR/slimmq_client.c"
 
 for file in "$TEST_DIR"/test_*.c; do
 	exe="${file%.c}"
