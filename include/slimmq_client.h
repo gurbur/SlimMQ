@@ -10,12 +10,15 @@
  * slimMQ client context structure
  */
 typedef struct {
-    int sockfd;												// internal UDP socket
-    struct sockaddr_in broker_addr;		// destination broker address
-    uint32_t next_msg_id;							// incremental message ID generator
-		slimmq_event_queue_t event_queue;	// event queue
-		pthread_t listener_thread;				// thread for incomming messages
-		int running;											// flag for thread loop control
+	int sockfd;												// internal UDP socket
+	struct sockaddr_in broker_addr;		// destination broker address
+	uint32_t next_msg_id;							// incremental message ID generator
+	slimmq_event_queue_t event_queue;	// event queue
+	pthread_t listener_thread;				// thread for incomming messages
+	int running;											// flag for thread loop control
+	int qos_level;										// QoS level for publish
+	int retry_timeout_ms;							// time out millisecond for qos 1/2
+	int max_retries;									// max retry num for qos 1/2
 } slimmq_client_t;
 
 /**
@@ -76,3 +79,13 @@ int slimmq_start_listener(slimmq_client_t* client);
  * Return: 
  */
 int slimmq_next_event(slimmq_client_t* client, char* out_topic, size_t topic_buf_size, void** out_data, size_t* out_data_len);
+
+
+/**
+ * slimmq_set_qos - set QoS level in given client
+ *
+ * @client: client pointer to set qos level
+ * @qos_level: enum for wanted qos level
+ */
+void slimmq_set_qos(slimmq_client_t* client, uint8_t qos_level);
+

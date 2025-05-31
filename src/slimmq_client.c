@@ -46,6 +46,7 @@ slimmq_client_t* slimmq_connect(const char* broker_ip, uint16_t port) {
 	if (!client) return NULL;
 
 	client->sockfd = init_udp_socket(NULL, 0);  // ephemeral port
+	client->default_qos_level = QOS_AT_MOST_ONCE;
 	if (client->sockfd < 0) {
 			free(client);
 			return NULL;
@@ -109,10 +110,12 @@ int slimmq_subscribe(slimmq_client_t* client, const char* topic) {
 
 int slimmq_publish(slimmq_client_t* client, const char* topic,
 		const void* data, size_t data_len) {
+	if (!client || !topic) return -1;
+
 	slim_msg_header_t header = {
 		.version = 1,
 		.msg_type = MSG_PUBLISH,
-		.qos_level = QOS_AT_MOST_ONCE,
+		.qos_level = client->qos_level,
 		.msg_id = client->next_msg_id++,
 		.payload_length = 1 + strlen(topic) + data_len,
 		.topic_id = 0,
@@ -127,9 +130,56 @@ int slimmq_publish(slimmq_client_t* client, const char* topic,
 			buffer, sizeof(buffer));
 	if (len < 0) return -1;
 
-	return send_bytes(client->sockfd,
-			(struct sockaddr*)&client->broker_addr,
-			sizeof(client->broker_addr), buffer, len);
+	int retries = 0;
+
+	while (1) {
+		int sent = send_bytes(client->sockfd,
+				(struct sockaddr*)&client->broker_addr,
+				sizeof(client->broker_addr), buffer, len);
+
+		if (sent < 0) return -1;
+
+		if (header.qos_level == QOS_AT_MOST_ONCE)
+			return 0;
+
+		struct timeval timeout;
+		timeout.tv_sec = client->retry_timeout_ms / 1000;
+		timeout.tv_usec = (client->retry_timeout_ms % 1000) * 1000;
+
+		setsockopt(client->sockfd, SOL_SOCKET, SO_RCVTIMEO,
+								&timeout, sizeof(timeout));
+
+		uint8_t recv_buf[MAX_PACKET_SIZE];
+		struct sockaddr_in from;
+		socklen_t fromlen = sizeof(from);
+
+		int recv_len = recv_bytes(client->sockfd, recv_buf,
+															sizeof(recv_buf),
+															(struct sockaddr*)&from,
+															&fromlen);
+		if (recv_len > 0) {
+			slim_msg_header_t ack_header;
+			char unused_topic[1];
+			char unused_payload[1];
+
+			int res = deserialize_message(recv_buf, recv_len,
+																		&ack_header,
+																		unused_topic,
+																		sizeof(unused_topic),
+																		unused_payload,
+																		sizeof(unused_payload));
+
+			if (res == 0 && ack_header.msg_type == MSG_ACK &&
+					ack_header.msg_id == header.msg_id) {
+				return 0;
+			}
+		}
+	
+		retries++;
+		if (retries > client->max_retries) {
+			return -1;
+		}
+	}
 }
 
 int slimmq_receive(slimmq_client_t* client, char* out_topic,
@@ -162,3 +212,8 @@ int slimmq_next_event(slimmq_client_t* client, char* out_topic,
 
 	return 0;
 }
+
+void slimmq_set_qos(slimmq_client_t* client, uint8_t qos_level) {
+	client->default_qos_level = qos_level;
+}
+
