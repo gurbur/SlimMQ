@@ -214,6 +214,12 @@ int slimmq_next_event(slimmq_client_t* client, char* out_topic,
 }
 
 void slimmq_set_qos(slimmq_client_t* client, uint8_t qos_level) {
-	client->default_qos_level = qos_level;
+	client->qos_level = qos_level;
 }
 
+void slimmq_set_retry_policy(slimmq_client_t* client, int timeout_ms, int max_retries) {
+	if (client) {
+		client->retry_timeout_ms = timeout_ms;
+		client->max_retries = max_retries;
+	}
+}
