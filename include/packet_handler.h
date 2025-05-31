@@ -63,4 +63,35 @@ int deserialize_message(const uint8_t* in_buf, size_t in_len,
                         slim_msg_header_t* out_header,
                         char* out_topic, size_t topic_buf_size,
                         void* out_data, size_t max_data_len);
+/**
+ * serialize_control_message - Serialize a MSG_CONTROL packet into a flat byte buffer
+ *
+ * @header: pointer to the base message header (msg_type will be overwritten as MSG_CONTROL
+ * @ctrl_type: control type identifier(CONTROL_HEARTBEAT, CONTROL_DISCONNECT)
+ * @data: optional payload data(can be NULL)
+ * @data_len: length of the optional data in bytes
+ * @buffer: Output buffer to write the serialized packet
+ * @buffer_len: Size of the output buffer in bytes
+ *
+ * Return: Number of bytes written (header + 1 + data), or -1 on error
+ */
+int serialize_control_message(const slim_msg_header_t* header, control_type_t ctrl_type,
+															const void* data, size_t data_len,
+															uint8_t* buffer, size_t buffer_len);
 
+/**
+ * deserialize_control_message - parse a float buffer into a MSG_CONTROL header and payload
+ *
+ * @in_buf: raw byte buffer received from socket
+ * @buf_len: size of the input buffer
+ * @out_header: output pointer to store the parsed header
+ * @out_type: output pointer to store optional control data
+ * @out_data: output buffer to store optional control data
+ * @max_data_len: maximum size of the output data buffer
+ *
+ * Return: 0 on success, -1 for invalid arguents, -2 for buffer too small, -3 for payload overflow
+ */
+int deserialize_control_message(const uint8_t* in_buf, size_t buf_len,
+																slim_msg_header_t* out_header,
+																control_type_t* out_type, void* out_data,
+																size_t max_data_len);
