@@ -186,19 +186,26 @@ int deserialize_message(const uint8_t* in_buf, size_t buf_len,
 	size_t header_size = sizeof(slim_msg_header_t);
 	
 	// verify buffer is large enough to contain at least a header
-	if (buf_len < header_size + 1) {
+	if (buf_len < header_size) {
 		return -1;
 	}
 
 	// copy header portion from buffer
 	memcpy(out_header, in_buf, header_size);
 
+	if (out_header->msg_type == MSG_ACK || out_header->msg_type == MSG_CONTROL) {
+		size_t data_len = out_header->payload_length;
+		if (data_len > 0 && out_data && max_data_len >= data_len) {
+			memcpy(out_data, in_buf + header_size, data_len);
+		}
+		if (out_topic) out_topic[0] = '\0';
+		return 0;
+	}
+
 	const uint8_t* payload_ptr = in_buf + header_size;
 	uint8_t topic_len = payload_ptr[0];
 
-	if ((size_t)(topic_len + 1) > out_header->payload_length) {
-		return -2;
-	}
+	if ((size_t)(topic_len + 1) > out_header->payload_length) return -2;
 
 	if (out_topic && topic_len > 0) {
 		if (topic_len >= topic_buf_size) return -3;

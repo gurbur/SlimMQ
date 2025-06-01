@@ -8,6 +8,8 @@
 #define MAX_EVENT_QUEUE_SIZE 128
 
 typedef struct {
+	uint8_t msg_type;
+	uint32_t msg_id;
 	char topic[MAX_TOPIC_LEN];
 	uint8_t* data;
 	size_t data_len;
@@ -41,14 +43,16 @@ void event_queue_destroy(slimmq_event_queue_t* q);
  * event_queue_push: 
  *
  * @q: queue to push
+ * @msg_type: 
+ * @msg_id: 
  * @topic: topic of pushing event
  * @data: data of pushing event
  * @len: length of pushing event
  *
  * Return: 0 on success, -1 on queue full, -2 on queue locked
  */
-int event_queue_push(slimmq_event_queue_t* q, const char* topic,
-										const void* data, size_t len);
+int event_queue_push(slimmq_event_queue_t* q, uint8_t msg_type, uint32_t msg_id,
+										const char* topic, const void* data, size_t len);
 
 /*
  * event_queue_pop: 
@@ -60,3 +64,7 @@ int event_queue_push(slimmq_event_queue_t* q, const char* topic,
  */
 int event_queue_pop(slimmq_event_queue_t* q, slimmq_event_t* out_event);
 
+/**
+ * event_queue_wait_ack - 
+ */
+int event_queue_wait_ack(slimmq_event_queue_t* q, uint32_t expected_msg_id);

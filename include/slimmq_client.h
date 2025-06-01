@@ -80,7 +80,6 @@ int slimmq_start_listener(slimmq_client_t* client);
  */
 int slimmq_next_event(slimmq_client_t* client, char* out_topic, size_t topic_buf_size, void** out_data, size_t* out_data_len);
 
-
 /**
  * slimmq_set_qos - set QoS level in given client
  *
@@ -89,3 +88,7 @@ int slimmq_next_event(slimmq_client_t* client, char* out_topic, size_t topic_buf
  */
 void slimmq_set_qos(slimmq_client_t* client, uint8_t qos_level);
 
+/**
+ * slimmq_set_retry_policy - set retry policies for QoS 1/2
+ */
+void slimmq_set_retry_policy(slimmq_client_t* client, int timeout_ms, int max_retries);

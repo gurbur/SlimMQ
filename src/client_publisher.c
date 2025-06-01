@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
 	}
 	slimmq_client_t* client = slimmq_connect(broker_ip, port);
 	if (!client) {
-		fprintf(stderr, "[PUBLISER] Failed to connect to broker.\n");
+		fprintf(stderr, "[PUBLISHER] Failed to connect to broker.\n");
 		return 1;
 	}
 

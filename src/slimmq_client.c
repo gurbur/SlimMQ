@@ -29,13 +29,23 @@ static void* listener_loop(void* arg) {
 												(struct sockaddr*)&from, &fromlen);
 		if (len <= 0) continue;
 
-		if (deserialize_message(buffer, len,
-					&header, topic_buf,
-					sizeof(topic_buf), payload_buf,
-					sizeof(payload_buf)) == 0) {
-			event_queue_push(&client->event_queue, topic_buf,
-					payload_buf,
-					header.payload_length - (1 + strlen(topic_buf)));
+		if (deserialize_message(buffer, len, &header,
+														topic_buf,
+														sizeof(topic_buf),
+														payload_buf,
+														sizeof(payload_buf)) == 0) {
+			size_t data_len;
+			if (header.msg_type == MSG_ACK || header.msg_type == MSG_CONTROL) {
+				data_len = header.payload_length;
+			} else {
+				data_len = header.payload_length - (1 + strlen(topic_buf));
+			}
+
+
+			int ret = event_queue_push(&client->event_queue, header.msg_type,
+												header.msg_id, topic_buf,
+												payload_buf,
+												data_len);
 		}
 	}
 	return NULL;
@@ -46,7 +56,7 @@ slimmq_client_t* slimmq_connect(const char* broker_ip, uint16_t port) {
 	if (!client) return NULL;
 
 	client->sockfd = init_udp_socket(NULL, 0);  // ephemeral port
-	client->default_qos_level = QOS_AT_MOST_ONCE;
+	client->qos_level = QOS_AT_MOST_ONCE;
 	if (client->sockfd < 0) {
 			free(client);
 			return NULL;
@@ -109,7 +119,7 @@ int slimmq_subscribe(slimmq_client_t* client, const char* topic) {
 }
 
 int slimmq_publish(slimmq_client_t* client, const char* topic,
-		const void* data, size_t data_len) {
+										const void* data, size_t data_len) {
 	if (!client || !topic) return -1;
 
 	slim_msg_header_t header = {
@@ -142,39 +152,14 @@ int slimmq_publish(slimmq_client_t* client, const char* topic,
 		if (header.qos_level == QOS_AT_MOST_ONCE)
 			return 0;
 
-		struct timeval timeout;
-		timeout.tv_sec = client->retry_timeout_ms / 1000;
-		timeout.tv_usec = (client->retry_timeout_ms % 1000) * 1000;
-
-		setsockopt(client->sockfd, SOL_SOCKET, SO_RCVTIMEO,
-								&timeout, sizeof(timeout));
-
-		uint8_t recv_buf[MAX_PACKET_SIZE];
-		struct sockaddr_in from;
-		socklen_t fromlen = sizeof(from);
-
-		int recv_len = recv_bytes(client->sockfd, recv_buf,
-															sizeof(recv_buf),
-															(struct sockaddr*)&from,
-															&fromlen);
-		if (recv_len > 0) {
-			slim_msg_header_t ack_header;
-			char unused_topic[1];
-			char unused_payload[1];
-
-			int res = deserialize_message(recv_buf, recv_len,
-																		&ack_header,
-																		unused_topic,
-																		sizeof(unused_topic),
-																		unused_payload,
-																		sizeof(unused_payload));
-
-			if (res == 0 && ack_header.msg_type == MSG_ACK &&
-					ack_header.msg_id == header.msg_id) {
+		// TODO: FIX BELOW. QoS 1 is not working.
+		for (int i = 0; i < client->retry_timeout_ms / 100; ++i) {
+			usleep(100 * 1000);
+			if (event_queue_wait_ack(&client->event_queue, header.msg_id) == 0) {
 				return 0;
 			}
 		}
-	
+
 		retries++;
 		if (retries > client->max_retries) {
 			return -1;

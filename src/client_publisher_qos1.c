@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include "../include/slimmq_client.h"
@@ -11,24 +11,9 @@
 
 static bool debug_mode = false;
 
-void receive_messages_loop(slimmq_client_t* client) {
-	while(1) {
-		char topic[128];
-		void* data = NULL;
-		size_t len = 0;
-
-		if (slimmq_next_event(client, topic, sizeof(topic), &data, &len) == 0) {
-			printf("[SUBSCRIBER] Topic: %s\n", topic);
-			printf("[SUBSCRIBER] Data: %.*s\n", (int)len, (char*)data);
-			free(data);
-		} else {
-			fprintf(stderr, "[SUBSCRIBER] Failed to receive event.\n");
-		}
-	}
-}
-
 int main(int argc, char* argv[]) {
-	const char* topic_str = "sensor/+/temp";
+	const char* topic_str = "sensor/livingroom/temp";
+	const char* payload = "23.5C";
 	const char* broker_ip = DEFAULT_BROKER_IP;
 	int port = DEFAULT_BROKER_PORT;
 
@@ -42,22 +27,30 @@ int main(int argc, char* argv[]) {
 			broker_ip = argv[++i];
 		} else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
 			port = atoi(argv[++i]);
+		} else if (strcmp(argv[i], "-v") == 0 && i < argc) {
+			payload = argv[++i];
 		}
 	}
 
 	slimmq_client_t* client = slimmq_connect(broker_ip, port);
 	if (!client) {
-		fprintf(stderr, "[SUBSCRIBER] Failed to connect to broker.\n");
+		fprintf(stderr, "[PUBLISHER-QOS1] Failed to connect to broker.\n");
 		return 1;
 	}
 
-	if (slimmq_subscribe(client, topic_str) < 0) {
-		fprintf(stderr, "[SUBSCRIBER] Failed to subscribe.\n");
+	slimmq_set_qos(client, QOS_AT_LEAST_ONCE);
+	slimmq_set_retry_policy(client, 1000, 5);
+
+	if (slimmq_publish(client, topic_str, payload, strlen(payload)) < 0) {
+		fprintf(stderr, "[PUBLISHER-QOS1] Failed to publish.\n");
+		slimmq_close(client);
 		return 1;
 	}
 
-	receive_messages_loop(client);
+	if (debug_mode) {
+		printf("[PUBLISHER-QOS1] Published with QoS1 to topic: %s -> %s\n", topic_str, payload);
+	}
+
 	slimmq_close(client);
 	return 0;
 }
-

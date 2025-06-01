@@ -12,17 +12,17 @@
 static bool debug_mode = false;
 
 void receive_messages_loop(slimmq_client_t* client) {
-	while(1) {
+	while (1) {
 		char topic[128];
 		void* data = NULL;
 		size_t len = 0;
 
 		if (slimmq_next_event(client, topic, sizeof(topic), &data, &len) == 0) {
-			printf("[SUBSCRIBER] Topic: %s\n", topic);
-			printf("[SUBSCRIBER] Data: %.*s\n", (int)len, (char*)data);
+			printf("[SUBSCRIBER-QOS1] Topic: %s\n", topic);
+			printf("[SUBSCRIBER-QOS1] Data: %.*s\n", (int)len, (char*) data);
 			free(data);
 		} else {
-			fprintf(stderr, "[SUBSCRIBER] Failed to receive event.\n");
+			fprintf(stderr, "[QOS1-CLIENT] Failed to receive event.\n");
 		}
 	}
 }
@@ -47,12 +47,13 @@ int main(int argc, char* argv[]) {
 
 	slimmq_client_t* client = slimmq_connect(broker_ip, port);
 	if (!client) {
-		fprintf(stderr, "[SUBSCRIBER] Failed to connect to broker.\n");
+		fprintf(stderr, "[SUBSCRIBER-QOS1] Failed to connect to broker.\n");
 		return 1;
 	}
 
 	if (slimmq_subscribe(client, topic_str) < 0) {
-		fprintf(stderr, "[SUBSCRIBER] Failed to subscribe.\n");
+		fprintf(stderr, "[SUBSCRIBER-QOS1] Failed to subscribe.\n");
+		slimmq_close(client);
 		return 1;
 	}
 
@@ -60,4 +61,3 @@ int main(int argc, char* argv[]) {
 	slimmq_close(client);
 	return 0;
 }
-
