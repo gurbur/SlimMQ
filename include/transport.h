@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <arpa/inet.h>
 #include "slim_msg.h"
 
 int init_udp_socket(const char* bind_ip, uint16_t port);
