@@ -10,6 +10,7 @@
 #include "../include/packet_handler.h"
 #include "../include/slim_msg.h"
 #include "../include/event_queue.h"
+#include "../include/qos2_table.h"
 
 #define MAX_PACKET_SIZE 2048
 
@@ -33,19 +34,35 @@ static void* listener_loop(void* arg) {
 														topic_buf,
 														sizeof(topic_buf),
 														payload_buf,
-														sizeof(payload_buf)) == 0) {
-			size_t data_len;
-			if (header.msg_type == MSG_ACK || header.msg_type == MSG_CONTROL) {
-				data_len = header.payload_length;
-			} else {
-				data_len = header.payload_length - (1 + strlen(topic_buf));
+														sizeof(payload_buf)) != 0) {
+			continue;
+		}
+
+		switch (header.msg_type) {
+			case MSG_ACK:
+				event_queue_push(&client->event_queue, MSG_ACK, header.msg_id, topic_buf, NULL, 0);
+				break;
+
+			case MSG_CONTROL: {
+				control_type_t ctrl_type;
+				char ctrl_data[256];
+
+				if (deserialize_control_message(buffer, len, &header, &ctrl_type, ctrl_data, sizeof(ctrl_data)) == 0) {
+					if (ctrl_type == CONTROL_RECEIVED) {
+						qos2_table_set(header.msg_id, QOS2_CLIENT_STATE_WAIT_COMPLETE);
+					} else if (ctrl_type == CONTROL_COMPLETE) {
+						qos2_table_set(header.msg_id, QOS2_CLIENT_STATE_COMPLETED);
+					}
+				}
+				break;
 			}
 
+			case MSG_PUBLISH:
+				event_queue_push(&client->event_queue, MSG_PUBLISH, header.msg_id, topic_buf, payload_buf, header.payload_length - (1 + strlen(topic_buf)));
+				break;
 
-			int ret = event_queue_push(&client->event_queue, header.msg_type,
-												header.msg_id, topic_buf,
-												payload_buf,
-												data_len);
+			default:
+				break;
 		}
 	}
 	return NULL;
@@ -142,7 +159,7 @@ int slimmq_publish(slimmq_client_t* client, const char* topic,
 
 	int retries = 0;
 
-	while (1) {
+	while (retries <= client->max_retries) {
 		int sent = send_bytes(client->sockfd,
 				(struct sockaddr*)&client->broker_addr,
 				sizeof(client->broker_addr), buffer, len);
@@ -152,19 +169,52 @@ int slimmq_publish(slimmq_client_t* client, const char* topic,
 		if (header.qos_level == QOS_AT_MOST_ONCE)
 			return 0;
 
-		// TODO: FIX BELOW. QoS 1 is not working.
-		for (int i = 0; i < client->retry_timeout_ms / 100; ++i) {
-			usleep(100 * 1000);
-			if (event_queue_wait_ack(&client->event_queue, header.msg_id) == 0) {
-				return 0;
+		if (header.qos_level == QOS_AT_LEAST_ONCE) {
+			for (int i = 0; i < client->retry_timeout_ms / 100; ++i) {
+				usleep(100 * 1000);
+				if (event_queue_wait_ack(&client->event_queue, header.msg_id) == 0) {
+					return 0;
+				}
 			}
+			retries++;
+			continue;
 		}
 
-		retries++;
-		if (retries > client->max_retries) {
-			return -1;
+		if (client->qos_level == QOS_EXACTLY_ONCE) {
+			for (int i = 0; i < client->retry_timeout_ms / 100; ++i) {
+				usleep(100 * 1000);
+				if (qos2_table_get_state(header.msg_id) == QOS2_CLIENT_STATE_WAIT_COMPLETE) {
+					break;
+				}
+			}
+			if (qos2_table_get_state(header.msg_id) != QOS2_CLIENT_STATE_WAIT_COMPLETE) {
+				retries++;
+				continue;
+			}
+
+			slim_msg_header_t rel_hdr = header;
+			rel_hdr.msg_type = MSG_CONTROL;
+			rel_hdr.payload_length = 1;
+
+			uint8_t ctrl_buf[256];
+			int ctrl_len = serialize_control_message(&rel_hdr, CONTROL_RELEASE, NULL, 0, ctrl_buf, sizeof(ctrl_buf));
+			if (ctrl_len > 0) {
+				send_bytes(client->sockfd, (struct sockaddr*)&client->broker_addr, sizeof(client->broker_addr), ctrl_buf, ctrl_len);
+			}
+
+			for (int i = 0; i < client->retry_timeout_ms / 100; ++i) {
+				usleep(100 * 1000);
+				if (qos2_table_get_state(header.msg_id) == QOS2_CLIENT_STATE_COMPLETED) {
+					qos2_table_remove(header.msg_id);
+					return 0;
+				}
+			}
+
+			retries++;
 		}
 	}
+	fprintf(stderr, "[CLIENT] Failed to publish (qos=%d) msg_id=%u\n", client->qos_level, header.msg_id);
+	return -1;
 }
 
 int slimmq_receive(slimmq_client_t* client, char* out_topic,
