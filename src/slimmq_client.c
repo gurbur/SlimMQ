@@ -108,6 +108,11 @@ void slimmq_close(slimmq_client_t* client) {
 
 	event_queue_destroy(&client->event_queue);
 	close(client->sockfd);
+
+	if (client->qos_level == QOS_EXACTLY_ONCE) {
+		qos2_table_destroy();
+	}
+
 	free(client);
 }
 
@@ -159,6 +164,7 @@ int slimmq_publish(slimmq_client_t* client, const char* topic,
 
 	int retries = 0;
 
+	printf("[DEBUG in client] max retries: %d\n", client->max_retries);
 	while (retries <= client->max_retries) {
 		int sent = send_bytes(client->sockfd,
 				(struct sockaddr*)&client->broker_addr,
@@ -172,7 +178,8 @@ int slimmq_publish(slimmq_client_t* client, const char* topic,
 		if (header.qos_level == QOS_AT_LEAST_ONCE) {
 			for (int i = 0; i < client->retry_timeout_ms / 100; ++i) {
 				usleep(100 * 1000);
-				if (event_queue_wait_ack(&client->event_queue, header.msg_id) == 0) {
+				if (event_queue_wait_ack(&client->event_queue,
+																	header.msg_id) == 0) {
 					return 0;
 				}
 			}
@@ -180,14 +187,19 @@ int slimmq_publish(slimmq_client_t* client, const char* topic,
 			continue;
 		}
 
-		if (client->qos_level == QOS_EXACTLY_ONCE) {
+		if (header.qos_level == QOS_EXACTLY_ONCE) {
+			printf("[DEBUG in client] QoS Exactly Once called\n");
 			for (int i = 0; i < client->retry_timeout_ms / 100; ++i) {
 				usleep(100 * 1000);
-				if (qos2_table_get_state(header.msg_id) == QOS2_CLIENT_STATE_WAIT_COMPLETE) {
+				if (qos2_table_get_state(header.msg_id)
+						== QOS2_CLIENT_STATE_WAIT_COMPLETE) {
+					printf("[DEBUG in client] currently state: STATE_WAIT_COMPLETE\n");
 					break;
 				}
 			}
-			if (qos2_table_get_state(header.msg_id) != QOS2_CLIENT_STATE_WAIT_COMPLETE) {
+			if (qos2_table_get_state(header.msg_id)
+					!= QOS2_CLIENT_STATE_WAIT_COMPLETE) {
+				printf("[DEBUG in client] not in STATE_WAIT_COMPLETE yet. retries: %d\n", retries);
 				retries++;
 				continue;
 			}
@@ -197,15 +209,25 @@ int slimmq_publish(slimmq_client_t* client, const char* topic,
 			rel_hdr.payload_length = 1;
 
 			uint8_t ctrl_buf[256];
-			int ctrl_len = serialize_control_message(&rel_hdr, CONTROL_RELEASE, NULL, 0, ctrl_buf, sizeof(ctrl_buf));
+			int ctrl_len = serialize_control_message(&rel_hdr,
+																								CONTROL_RELEASE,
+																								NULL, 0,
+																								ctrl_buf,
+																								sizeof(ctrl_buf));
 			if (ctrl_len > 0) {
-				send_bytes(client->sockfd, (struct sockaddr*)&client->broker_addr, sizeof(client->broker_addr), ctrl_buf, ctrl_len);
+				send_bytes(client->sockfd,
+										(struct sockaddr*)&client->broker_addr,
+										sizeof(client->broker_addr),
+										ctrl_buf, ctrl_len);
+				printf("[DEBUG in client] bytes sent. current control type: CONTROL_RELEASE\n");
 			}
 
 			for (int i = 0; i < client->retry_timeout_ms / 100; ++i) {
 				usleep(100 * 1000);
-				if (qos2_table_get_state(header.msg_id) == QOS2_CLIENT_STATE_COMPLETED) {
+				if (qos2_table_get_state(header.msg_id)
+						== QOS2_CLIENT_STATE_COMPLETED) {
 					qos2_table_remove(header.msg_id);
+					printf("[DEBUG in client] current state is CLIENT_STATE_COMPLETED and now is removed\n");
 					return 0;
 				}
 			}
@@ -213,7 +235,8 @@ int slimmq_publish(slimmq_client_t* client, const char* topic,
 			retries++;
 		}
 	}
-	fprintf(stderr, "[CLIENT] Failed to publish (qos=%d) msg_id=%u\n", client->qos_level, header.msg_id);
+	fprintf(stderr, "[CLIENT] Failed to publish (qos=%d) msg_id=%u\n",
+					client->qos_level, header.msg_id);
 	return -1;
 }
 
@@ -249,7 +272,13 @@ int slimmq_next_event(slimmq_client_t* client, char* out_topic,
 }
 
 void slimmq_set_qos(slimmq_client_t* client, uint8_t qos_level) {
+	if (!client) return;
+
 	client->qos_level = qos_level;
+
+	if (qos_level == QOS_EXACTLY_ONCE) {
+		qos2_table_init();
+	}
 }
 
 void slimmq_set_retry_policy(slimmq_client_t* client, int timeout_ms, int max_retries) {
