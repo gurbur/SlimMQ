@@ -36,6 +36,26 @@ client_test_perf_qos2_SRC   = test/test_perf_qos2.c         $(CLIENT_COMMON_SRC)
 
 all: $(BROKER_BIN) client_examples client_tests
 
+
+client_loss_test_qos0_SRC              = test/client_test_loss_qos0.c              $(CLIENT_COMMON_SRC)
+client_loss_test_subscriber_qos0_SRC   = test/client_test_loss_subscriber_qos0.c   $(CLIENT_COMMON_SRC)
+client_loss_test_qos1_SRC              = test/client_test_loss_qos1.c              $(CLIENT_COMMON_SRC)
+client_loss_test_subscriber_qos1_SRC   = test/client_test_loss_subscriber_qos1.c   $(CLIENT_COMMON_SRC)
+lossy_broker_SRC                       = test/lossy_broker.c                        $(COMMON_SRC) src/topic_table.c src/pending_table.c
+
+client_loss_tests: | $(BUILDDIR)
+	$(CC) -o $(BUILDDIR)/client_test_loss_qos0             $(client_loss_test_qos0_SRC)             $(CFLAGS)
+	$(CC) -o $(BUILDDIR)/client_test_loss_subscriber_qos0  $(client_loss_test_subscriber_qos0_SRC)  $(CFLAGS)
+	$(CC) -o $(BUILDDIR)/client_test_loss_qos1             $(client_loss_test_qos1_SRC)             $(CFLAGS)
+	$(CC) -o $(BUILDDIR)/client_test_loss_subscriber_qos1  $(client_loss_test_subscriber_qos1_SRC)  $(CFLAGS)
+	$(CC) -o $(BUILDDIR)/lossy_broker                      $(lossy_broker_SRC)                      $(CFLAGS)
+
+all: client_loss_tests
+
+clean:
+	rm -rf $(BUILDDIR)
+
+
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
 
