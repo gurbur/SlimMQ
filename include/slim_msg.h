@@ -6,6 +6,7 @@
 #define MSG_NODE_COUNT_UPDATE 	2
 #define MSG_CONTROL 						3
 #define MSG_SUBSCRIBE 					4
+#define MSG_NOTIFY							5
 
 #define QOS_AT_MOST_ONCE 				0
 #define QOS_AT_LEAST_ONCE 			1
