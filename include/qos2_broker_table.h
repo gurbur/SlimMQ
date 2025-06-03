@@ -14,7 +14,7 @@ typedef enum {
 	QOS2_BROKER_STATE_COMPLETED,
 } qos2_broker_state_t;
 
-tyepdef struct qos2_broker_entry {
+typedef struct qos2_broker_entry {
 	struct sockaddr_in addr;
 	uint32_t msg_id;
 	qos2_broker_state_t state;
