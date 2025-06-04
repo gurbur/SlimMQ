@@ -1,21 +1,50 @@
-# What is SlimMQ?
-**SlimMQ** is a lightweight, high-performance messaging middleware written in C.
+# SlimMQ
 
-It implements a UDP-based, topic-driven, publish-subscribe architecture inspired by systems like Solace and MQTT, while maintaining extreme simplicity and minimal runtime overhead.
+**SlimMQ** is a lightweight, UDP-based messaging middleware designed for high-performance publish/subscribe communication in resource-constrained environments.
 
-# Features
-- UDP-based topic Pub/Sub messaging
-- Supports QoS 0 / 1 / 2(At Most Once / At Least Once / Exactly Once)
-- (Planned) Zero-copy transmission
-- (Planned) Pool allocator for fast memory reuse
-- (Planned) Message fragmentation & reassembly
-- (Planned) Batch message transmission
+Inspired by MQTT and Solace, SlimMQ provides topic-based routing and QoS guarantees, while eliminating the overhead of TCP and runtime dependencies.
 
-# License
+---
+
+## 🔧 Features
+
+- **UDP-based topic Pub/Sub messaging**
+- **Lightweight 14-byte fixed header format**
+- **QoS 0 / 1 / 2** supported  
+  - At most once (fire-and-forget)  
+  - At least once (with ACK)  
+  - Exactly once (4-stage handshake with state tracking)
+- **Globbing-style topic filters** (`/sensor/#`, `+/temp`)
+- **Internal event queue** with threaded message listener
+- **Transparent client API**: no need to manage sockets or threads manually
+
+---
+
+## 🔬 Performance
+
+- **Broker executable size**: 27KB  
+- **Runtime memory footprint**: ~2.8MB  
+- **Delivers 1000+ messages/sec** in low-resource environments  
+- **QoS 1 tested to recover all messages with 30% artificial packet loss**
+
+---
+
+## 🛠️ Planned Enhancements
+
+- Zero-copy payload transmission  
+- Pool allocator for lock-free memory reuse  
+- Message fragmentation & reassembly for large payloads  
+- Batch transmission support for efficient I/O
+
+---
+
+## 📜 License
+
 MIT License
 
-# Author
-A course project for Distributed Systems, from Ajou Univ. Korea.
+---
 
-Designed and developed by Kim Jihwan.
+## ✍️ Author
 
+A distributed systems course project from Ajou University, South Korea.  
+Designed and developed by **Kim Jihwan**.
