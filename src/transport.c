@@ -29,7 +29,7 @@ void enable_transport_debug(bool enable) {
  *
  * Return: UDP socket file descriptor, or -1 on failure
  */
-int init_udp_socket(const char* bind_ip, uint16_t port) {
+int init_socket(const char* bind_ip, uint16_t port) {
 	int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd < 0) {
 		perror("socket() failed");
