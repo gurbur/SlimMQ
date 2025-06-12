@@ -72,7 +72,7 @@ slimmq_client_t* slimmq_connect(const char* broker_ip, uint16_t port) {
 	slimmq_client_t* client = calloc(1, sizeof(slimmq_client_t));
 	if (!client) return NULL;
 
-	client->sockfd = init_udp_socket(NULL, 0);  // ephemeral port
+	client->sockfd = init_socket(NULL, 0);  // ephemeral port
 	client->qos_level = QOS_AT_MOST_ONCE;
 	if (client->sockfd < 0) {
 			free(client);

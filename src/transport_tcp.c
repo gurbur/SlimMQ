@@ -29,27 +29,61 @@ void enable_transport_debug(bool enable) {
  *
  * Return: UDP socket file descriptor, or -1 on failure
  */
-int init_socket(const char* bind_ip, uint16_t port) {
+int init_socket(const char* bind_ip, uint16_t port, bool is_server) {
 	int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd < 0) {
 		perror("socket() failed");
 		return -1;
 	}
 
-	// bind if an IP or port is specified
-	if (bind_ip != NULL || port != 0) {
-		struct sockaddr_in addr;
-		memset(&addr, 0, sizeof(addr));
-		addr.sin_family = AF_INET;
-		addr.sin_port = htons(port);
-		addr.sin_addr.s_addr = (bind_ip != NULL) ? inet_addr(bind_ip) : INADDR_ANY;
+	struct sockaddr_in addr;
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(port);
+	addr.sin_addr.s_addr = (bind_ip != NULL) ? inet_addr(bind_ip) : INADDR_ANY;
 
+	if (is_server) {
 		if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
 			perror("bind() failed");
 			close(sockfd);
 			return -1;
 		}
+
+		if (listen(sockfd, 1) < 0) {
+			perror("listen() failed");
+			close(sockfd);
+			return -1;
+		}
+
+		if (debug_enabled) {
+			printf("[SERVER] Listening on port %d...\n", port);
+		}
+
+		socklen_t addrlen = sizeof(addr);
+		int connfd = accept(sockfd, (struct sockaddr*)&addr, &addrlen);
+		if (connfd < 0) {
+			perror("accept() failed");
+			close(sockfd);
+			return -1;
+		}
+
+		close(sockfd);
+		if (debug_enabled) {
+			printf("[SERVER] Accepted connection from %s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+		}
+		return connfd;
+	} else {
+		if (connect(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+			perror("connect() failed");
+			close(sockfd);
+			return -1;
+		}
+
+		if (debug_enabled) {
+			printf("[CLIENT] Connected to %s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+		}
 	}
+
 	return sockfd;
 }
 

@@ -5,7 +5,7 @@
 #include <arpa/inet.h>
 #include "slim_msg.h"
 
-int init_socket(const char* bind_ip, uint16_t port);
+int init_socket(const char* bind_ip, uint16_t port, bool is_server);
 
 int send_bytes(int sockfd, const struct sockaddr* dest_addr, socklen_t addrlen, const uint8_t* buffer, size_t len);
 
