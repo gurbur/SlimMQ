@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Iinclude -lpthread
 BUILDDIR = builds
 
-COMMON_SRC = src/transport.c src/packet_handler.c
+COMMON_SRC = src/transport_udp.c src/packet_handler.c
 BROKER_SRC = src/broker.c $(COMMON_SRC) src/topic_table.c src/pending_table.c
 BROKER_BIN = $(BUILDDIR)/broker
 
