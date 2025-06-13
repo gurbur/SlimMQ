@@ -9,126 +9,86 @@
 #include <arpa/inet.h>
 #include "../include/transport.h"
 
-// Global flag to enable debug logging
 static bool debug_enabled = false;
 
-/**
- * enable_transport_debug - Enable or disable debug log printing
- *
- * @enable: true to enable debug logs, false to disable
- */
 void enable_transport_debug(bool enable) {
-	debug_enabled = enable;
+    debug_enabled = enable;
 }
 
-/**
- * init_udp_socket - Create a UDP socket and optionally bind to a port
- *
- * @bind_ip: IP address to bind to (NULL for default)
- * @port: Port number to bind (0 for ephemeral)
- *
- * Return: UDP socket file descriptor, or -1 on failure
- */
 int init_socket(const char* bind_ip, uint16_t port, bool is_server) {
-	int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sockfd < 0) {
-		perror("socket() failed");
-		return -1;
-	}
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("socket() failed");
+        return -1;
+    }
 
-	struct sockaddr_in addr;
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(port);
-	addr.sin_addr.s_addr = (bind_ip != NULL) ? inet_addr(bind_ip) : INADDR_ANY;
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = (bind_ip != NULL) ? inet_addr(bind_ip) : INADDR_ANY;
 
-	if (is_server) {
-		if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-			perror("bind() failed");
-			close(sockfd);
-			return -1;
-		}
+    if (is_server) {
+        if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+            perror("bind() failed");
+            close(sockfd);
+            return -1;
+        }
 
-		if (listen(sockfd, 1) < 0) {
-			perror("listen() failed");
-			close(sockfd);
-			return -1;
-		}
+        if (listen(sockfd, 10) < 0) {
+            perror("listen() failed");
+            close(sockfd);
+            return -1;
+        }
 
-		if (debug_enabled) {
-			printf("[SERVER] Listening on port %d...\n", port);
-		}
+        if (debug_enabled)
+            printf("[SERVER] Listening on port %d...\n", port);
 
-		socklen_t addrlen = sizeof(addr);
-		int connfd = accept(sockfd, (struct sockaddr*)&addr, &addrlen);
-		if (connfd < 0) {
-			perror("accept() failed");
-			close(sockfd);
-			return -1;
-		}
+        return sockfd;
 
-		close(sockfd);
-		if (debug_enabled) {
-			printf("[SERVER] Accepted connection from %s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-		}
-		return connfd;
-	} else {
-		if (connect(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-			perror("connect() failed");
-			close(sockfd);
-			return -1;
-		}
+    } else {
+        if (connect(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+            perror("connect() failed");
+            close(sockfd);
+            return -1;
+        }
 
-		if (debug_enabled) {
-			printf("[CLIENT] Connected to %s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-		}
-	}
-
-	return sockfd;
+        if (debug_enabled)
+            printf("[CLIENT] Connected to %s:%d\n",
+                   inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+        return sockfd;
+    }
 }
 
-/**
- * send_bytes - Send a bytes buffer over UDP
- *
- * @sockfd: UDP socket file descriptor
- * @dest_addr: Pointer to destination sockaddr (IPV4)
- * @addrlen: Length of destination sockaddr
- * @buffer: Buffer to send
- * @len: size of buffer to send
- *
- * Return: Number of bytes sent, or -1 on error
- */
-int send_bytes(int sockfd, const struct sockaddr* dest_addr, socklen_t addrlen, const uint8_t* buffer, size_t len) {
-  if (debug_enabled) {
-    printf("[SEND] %zu bytes -> %s:%d\n", len,
-										inet_ntoa(((struct sockaddr_in*)dest_addr)->sin_addr),
-										ntohs(((struct sockaddr_in*)dest_addr)->sin_port));
-	}
+int send_bytes(int sockfd, const struct sockaddr* dest_addr, socklen_t addrlen,
+               const uint8_t* buffer, size_t len) {
+    (void)dest_addr;
+    (void)addrlen;
 
-  return sendto(sockfd, buffer, len, 0, dest_addr, addrlen);
+    if (debug_enabled)
+        printf("[SEND] %zu bytes via TCP\n", len);
+
+    return send(sockfd, buffer, len, 0);
 }
 
-/**
- * recv_bytes - Receive bytes into buffer from given sockfd over UDP
- *
- * @sockfd: UDP socket file descriptor
- * @buffer: Buffer to recieve
- * @max_len: Max length a buffer can hold
- * @from_addr: Output: sender's address
- * @from_len: Input/output: size of from_addr
- *
- * Return: 0 on success, -1 on error
- */
-int recv_bytes(int sockfd, uint8_t* buffer, size_t max_len, struct sockaddr* from_addr, socklen_t* from_len) {
-  ssize_t len = recvfrom(sockfd, buffer, max_len, 0, from_addr, from_len);
-	if (len <= 0) return -1;
+int recv_bytes(int sockfd, uint8_t* buffer, size_t max_len,
+               struct sockaddr* from_addr, socklen_t* from_len) {
+    (void)from_addr;
+    (void)from_len;
 
-	if (debug_enabled) {
-    char ip[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET, &((struct sockaddr_in*)from_addr)->sin_addr, ip, sizeof(ip));
-		printf("[RECV] %ld bytes <- %s:%d\n", len, ip, ntohs(((struct sockaddr_in*)from_addr)->sin_port));
-	}
+    ssize_t len = recv(sockfd, buffer, max_len, 0);
+    if (len < 0) {
+        perror("[RECV ERROR]");
+        return -1;
+    } else if (len == 0) {
+        if (debug_enabled)
+            printf("[RECV] Connection closed by peer\n");
+        return -1;
+    }
 
-	return (int)len;
+    if (debug_enabled)
+        printf("[RECV] %ld bytes via TCP\n", len);
+
+    return (int)len;
 }
 

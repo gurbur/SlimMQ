@@ -22,7 +22,7 @@ static bool debug_mode = false;
  * Return: the bound UDP socket file descriptor, or -1 on failure
  */
 int init_broker_socket() {
-	int sockfd = init_socket(NULL, BROKER_PORT, false);
+	int sockfd = init_socket(NULL, BROKER_PORT, true);
 	if (sockfd < 0) {
 		fprintf(stderr, "[BROKER] Failed to create UDP socket.\n");
 		return -1;
