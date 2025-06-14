@@ -3,7 +3,7 @@
 # Usage: ./monitor.sh <broker_path> "" <output.csv>
 BROKER=$1
 OUTFILE=$3
-TIMEOUT=60  # seconds
+TIMEOUT=30  # seconds
 
 echo "timestamp,cpu_percent,mem_resident_kb,net_rx_kb,net_tx_kb" > "$OUTFILE"
 

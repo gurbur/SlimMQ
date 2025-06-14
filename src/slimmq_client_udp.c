@@ -171,12 +171,14 @@ int slimmq_publish(slimmq_client_t* client, const char* topic,
 
 		if (sent < 0) return -1;
 
-		if (header.qos_level == QOS_AT_MOST_ONCE)
+		if (header.qos_level == QOS_AT_MOST_ONCE) {
+			usleep(1000);
 			return 0;
+		}
 
 		if (header.qos_level == QOS_AT_LEAST_ONCE) {
 			for (int i = 0; i < client->retry_timeout_ms / 100; ++i) {
-				usleep(100 * 1000);
+				usleep(1000);
 				if (event_queue_wait_ack(&client->event_queue,
 																	header.msg_id) == 0) {
 					return 0;
@@ -188,7 +190,7 @@ int slimmq_publish(slimmq_client_t* client, const char* topic,
 
 		if (header.qos_level == QOS_EXACTLY_ONCE) {
 			for (int i = 0; i < client->retry_timeout_ms / 100; ++i) {
-				usleep(100 * 1000);
+				usleep(1000);
 				if (qos2_table_get_state(header.msg_id)
 						== QOS2_CLIENT_STATE_WAIT_COMPLETE) {
 					break;
@@ -218,7 +220,7 @@ int slimmq_publish(slimmq_client_t* client, const char* topic,
 			}
 
 			for (int i = 0; i < client->retry_timeout_ms / 100; ++i) {
-				usleep(100 * 1000);
+				usleep(1000);
 				if (qos2_table_get_state(header.msg_id)
 						== QOS2_CLIENT_STATE_COMPLETED) {
 					qos2_table_remove(header.msg_id);
